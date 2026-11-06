@@ -2,7 +2,7 @@ import os
 import unittest
 from datetime import date
 from unittest.mock import patch
-from gold_alert import build_message, latest_common_close, recipient, rupees, send, api_base
+from gold_alert import build_message, latest_common_close, recipient, rupees, send, api_base, group_chat_id, destination_chats
 
 def feed(purity, v1, v2, v3):
     return {'metal':'gold','purity':purity,'unit':'INR per gram','source':'IBJA','rows':[
@@ -40,6 +40,23 @@ class GoldTest(unittest.TestCase):
         self.assertEqual(recipient('+91 98765-43210'),'919876543210@c.us')
         with self.assertRaises(ValueError):
             recipient('invalid')
+
+    def test_group_chat_id(self):
+        self.assertEqual(group_chat_id('120363012345678901@g.us'),
+                         '120363012345678901@g.us')
+        with self.assertRaises(ValueError):
+            group_chat_id('919876543210@c.us')
+        with self.assertRaises(ValueError):
+            group_chat_id('bad@g.us')
+
+    def test_destinations_optional_group(self):
+        env = {'RECIPIENT_1': '919876543210',
+               'RECIPIENT_2': '919999999999'}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(len(destination_chats()), 2)
+        env['GROUP_CHAT_ID'] = '120363012345678901@g.us'
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(len(destination_chats()), 3)
 
     def test_currency(self):
         self.assertEqual(rupees('1234567.5'),'₹12,34,568')
