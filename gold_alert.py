@@ -63,7 +63,8 @@ def validated_rows(doc, purity, today, metal='gold'):
             continue
         pm = number(entry.get('pm') if entry.get('pm') is not None else entry.get('close'))
         # At 9 AM IST use the latest *confirmed PM* benchmark, never a future AM quote.
-        if pm and Decimal('1000') <= pm <= Decimal('100000'):
+        if pm and ((metal == 'gold' and Decimal('1000') <= pm <= Decimal('100000')) or
+                   (metal == 'silver' and Decimal('1') <= pm <= Decimal('10000'))):
             rows[day] = pm
     return rows
 
