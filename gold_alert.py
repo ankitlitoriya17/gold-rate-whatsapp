@@ -151,6 +151,27 @@ def recipient(value):
     return digits + '@c.us'
 
 
+def group_chat_id(value):
+    """Validate a WhatsApp group chat ID obtained from GREEN-API getChats."""
+    chat = value.strip()
+    if (len(chat) > 45 or
+        not re.fullmatch(r'[0-9]{10,25}(?:-[0-9]{4,15})?@g\\.us', chat)):
+        raise ValueError('GROUP_CHAT_ID must be a valid WhatsApp group chat ID ending @g.us')
+    return chat
+
+
+def destination_chats():
+    """Two individual recipients plus an optional third group destination."""
+    chats = [recipient(os.environ['RECIPIENT_1']),
+             recipient(os.environ['RECIPIENT_2'])]
+    if chats[0] == chats[1]:
+        raise ValueError('Both individual recipients must be different')
+    group = (os.environ.get('GROUP_CHAT_ID') or '').strip()
+    if group:
+        chats.append(group_chat_id(group))
+    return chats
+
+
 def call_api(url, payload=None):
     data = json.dumps(payload).encode('utf-8') if payload is not None else None
     request = Request(url, data=data, method='POST' if data else 'GET',
@@ -176,10 +197,7 @@ def send(message):
     token = os.environ['GREEN_API_TOKEN'].strip()
     if not re.fullmatch(r'[0-9]{1,12}', instance) or not re.fullmatch(r'[A-Za-z0-9_-]{10,256}', token):
         raise ValueError('Malformed GREEN-API instance credentials')
-    chats = (recipient(os.environ['RECIPIENT_1']),
-             recipient(os.environ['RECIPIENT_2']))
-    if chats[0] == chats[1]:
-        raise ValueError('Both recipients must be different')
+    chats = destination_chats()
     prefix = f'{api_base()}/waInstance{instance}'
     state = call_api(f'{prefix}/getStateInstance/{token}')
     if state.get('stateInstance') != 'authorized':
@@ -187,9 +205,10 @@ def send(message):
     for index, chat in enumerate(chats, start=1):
         result = call_api(f'{prefix}/sendMessage/{token}',
                           {'chatId': chat, 'message': message})
+        label = 'WhatsApp group' if chat.endswith('@g.us') else f'Recipient {index}'
         if not result.get('idMessage'):
-            raise RuntimeError(f'Recipient {index}: API did not confirm queue acceptance')
-        print(f'Recipient {index}: message queued (delivery not independently confirmed)')
+            raise RuntimeError(f'{label}: API did not confirm queue acceptance')
+        print(f'{label}: message queued (delivery not independently confirmed)')
 
 
 def main():
