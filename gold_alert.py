@@ -155,7 +155,7 @@ def group_chat_id(value):
     """Validate a WhatsApp group chat ID obtained from GREEN-API getChats."""
     chat = value.strip()
     if (len(chat) > 45 or
-        not re.fullmatch(r'[0-9]{10,25}(?:-[0-9]{4,15})?@g\\.us', chat)):
+        not re.fullmatch(r'[0-9]{10,25}(?:-[0-9]{4,15})?@g\.us', chat)):
         raise ValueError('GROUP_CHAT_ID must be a valid WhatsApp group chat ID ending @g.us')
     return chat
 
