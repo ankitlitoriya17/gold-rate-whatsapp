@@ -1,6 +1,6 @@
 # Datia Gold Rates → WhatsApp
 
-Daily 9:00 AM Asia/Kolkata scheduled alerts containing 24K (999) and 22K (916) published IBJA closing benchmark prices, daily change and seven-day comparison. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
+Daily 9:00 AM Asia/Kolkata scheduled short Hinglish alerts containing IBJA benchmark closing prices for 24K gold (per 10g), 22K gold (per 10g), and silver 999 (per kg), with changes from the previous closing session. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
 
 **Status on initial setup: preview mode.** WhatsApp sends do not happen unless the GitHub Actions variable `SEND_ENABLED` is explicitly set to `true` and a run is not a dry run. GREEN-API is not an approved Meta Cloud API and WhatsApp accounts may be restricted or disconnected. GitHub scheduled jobs can be delayed.
 
@@ -26,7 +26,7 @@ The free Developer tariff counts a group as one chat; two individuals plus one g
 6. Run again with `dry_run=false` to attempt sending a test to *both* recipients; check actual delivery in WhatsApp.
 7. Scheduled workflow uses cron `30 3 * * *` UTC, equivalent to 09:00 IST; GitHub may delay runs.
 
-Data: https://trackliveprice.com/api/gold/999.json and https://trackliveprice.com/api/gold/916.json . Attribution required by TrackLivePrice. The national IBJA benchmark is **not** a confirmed Datia local jewellery retail price, and GST/making charges are excluded. At 9 AM latest confirmed prior PM price is usually the previous working day's; weekends and holidays reuse prior sessions. Old or unverified data is rejected.
+Data: https://trackliveprice.com/api/gold/999.json, https://trackliveprice.com/api/gold/916.json and https://trackliveprice.com/api/silver.json . Attribution required by TrackLivePrice. The national IBJA benchmark is **not** a confirmed Datia local jewellery retail price, and GST/making charges are excluded. At 9 AM latest confirmed prior PM price is usually the previous working day's; weekends and holidays reuse prior sessions. Old or unverified data is rejected.
 
 ## Local tests
 
