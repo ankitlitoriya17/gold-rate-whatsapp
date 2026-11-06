@@ -133,7 +133,7 @@ def build_message(docs, today=None):
 
 
 def api_base():
-    base = os.environ.get('GREEN_API_BASE_URL', 'https://api.green-api.com').rstrip('/')
+    base = (os.environ.get('GREEN_API_BASE_URL') or 'https://api.green-api.com').rstrip('/')
     parsed = urlparse(base)
     host = parsed.hostname or ''
     valid = (host in ('green-api.com', 'greenapi.com') or
