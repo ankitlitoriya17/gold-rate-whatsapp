@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 TZ = ZoneInfo('Asia/Kolkata')
 SOURCE = 'https://trackliveprice.com'
 API_GOLD = SOURCE + '/api/gold/{purity}.json'
+API_SILVER = SOURCE + '/api/silver.json'
 IBJA = 'https://www.ibjarates.com/'
 
 
@@ -46,8 +47,8 @@ def number(value):
         return None
 
 
-def validated_rows(doc, purity, today):
-    if (doc.get('metal') != 'gold' or
+def validated_rows(doc, purity, today, metal='gold'):
+    if (doc.get('metal') != metal or
         str(doc.get('purity')) != purity or
         doc.get('unit') != 'INR per gram' or
         doc.get('source') not in ('IBJA', 'India Bullion and Jewellers Association')):
@@ -60,7 +61,7 @@ def validated_rows(doc, purity, today):
             continue
         if day > today:
             continue
-        pm = number(entry.get('pm'))
+        pm = number(entry.get('pm') if entry.get('pm') is not None else entry.get('close'))
         # At 9 AM IST use the latest *confirmed PM* benchmark, never a future AM quote.
         if pm and Decimal('1000') <= pm <= Decimal('100000'):
             rows[day] = pm
@@ -70,7 +71,8 @@ def validated_rows(doc, purity, today):
 def latest_common_close(docs, today):
     a = validated_rows(docs['999'], '999', today)
     b = validated_rows(docs['916'], '916', today)
-    available = sorted(set(a).intersection(b))
+    silver = validated_rows(docs['silver'], '999', today, metal='silver')
+    available = sorted(set(a).intersection(b).intersection(silver))
     if not available:
         raise ValueError('No matching 22K and 24K PM sessions')
     latest = available[-1]
@@ -80,7 +82,7 @@ def latest_common_close(docs, today):
     anchor = latest - timedelta(days=7)
     week = max((d for d in available if d <= anchor and (anchor - d).days <= 5),
                default=None)
-    return latest, previous, week, {'999': a, '916': b}
+    return latest, previous, week, {'999': a, '916': b, 'silver': silver}
 
 
 def rupees(value):
@@ -104,32 +106,37 @@ def change(current, previous):
     return ('+' if delta > 0 else '') + rupees(delta)
 
 
+def short_change(now, old, multiplier=1):
+    if old is None:
+        return '—'
+    delta = (now - old) * multiplier
+    if delta == 0:
+        return '→ Same'
+    return ('🔺 ' if delta > 0 else '🔻 ') + rupees(abs(delta))
+
+
 def build_message(docs, today=None):
     today = today or datetime.now(TZ).date()
-    latest, previous, week, history = latest_common_close(docs, today)
+    latest, previous, _week, history = latest_common_close(docs, today)
     lines = [
-        '*Datia Gold Rate Update*',
-        f'IBJA benchmark closing rates — *{latest.strftime("%d %b %Y")} (PM)*',
-        ''
+        '🌟 *Datia Gold & Silver Update*',
+        f'📅 {latest.strftime("%d %b %Y")} | IBJA closing rate',
+        '',
     ]
-    for purity, label in (('999', '24K (999)'), ('916', '22K (916)')):
+    for purity, label in (('999', '24K Gold'), ('916', '22K Gold')):
         now = history[purity][latest]
         old = history[purity].get(previous) if previous else None
-        seven = history[purity].get(week) if week else None
-        lines += [
-            f'*{label}*',
-            f'1 gram: {rupees(now)} | 10 grams: {rupees(now * 10)}',
-            f'Vs previous close ({previous.strftime("%d %b") if previous else "N/A"}): {change(now, old)} / 10g',
-            f'7-day change (vs {week.strftime("%d %b") if week else "N/A"}): {change(now, seven)} / 10g',
-            ''
-        ]
-    lines += [
-        '*Note:* These are India-wide IBJA benchmark rates, not verified Datia jeweller retail quotes.',
-        '3% GST and making charges excluded. The current day AM rate is not assumed at 9 AM.',
-        f'Source: IBJA ({IBJA}) via TrackLivePrice ({SOURCE}/api/gold/999.json)',
-        'Published rate date shown above; may change later in the day.'
-    ]
-    return '\n'.join(lines)
+        lines.append(f'🟡 *{label}:* {rupees(now * 10)}/10g  {short_change(now, old, 10)}')
+    silver = history['silver'][latest]
+    old_silver = history['silver'].get(previous) if previous else None
+    lines.extend([
+        f'⚪ *Silver (999):* {rupees(silver * 1000)}/kg  {short_change(silver, old_silver, 1000)}',
+        '',
+        '↕️ Change vs previous closing rate',
+        'ℹ️ IBJA India benchmark; Datia shop rates may differ. GST & making extra.',
+        'Source: IBJA via TrackLivePrice',
+    ])
+    return '\\n'.join(lines)
 
 
 def api_base():
@@ -213,6 +220,7 @@ def send(message):
 
 def main():
     docs = {p: fetch_json(API_GOLD.format(purity=p)) for p in ('999', '916')}
+    docs['silver'] = fetch_json(API_SILVER)
     message = build_message(docs)
     dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
     enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
