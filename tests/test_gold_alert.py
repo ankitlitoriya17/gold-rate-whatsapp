@@ -16,7 +16,12 @@ class GoldTest(unittest.TestCase):
     def setUp(self):
         self.docs = {
             '999': feed('999', 14225.5, 14162.2, 14412.9),
-            '916': feed('916', 13031.8, 12972.6, 13202.2)
+            '916': feed('916', 13031.8, 12972.6, 13202.2),
+            'silver': {'metal':'silver','purity':'999','unit':'INR per gram','source':'IBJA','rows':[
+                {'date':'2026-10-29','close':180},
+                {'date':'2026-11-04','close':181},
+                {'date':'2026-11-05','close':182},
+            ]}
         }
 
     def test_latest_pm_and_week(self):
@@ -29,7 +34,10 @@ class GoldTest(unittest.TestCase):
         self.assertIn('05 Nov 2026',msg)
         self.assertIn('₹1,44,129',msg)
         self.assertIn('₹1,32,022',msg)
-        self.assertIn('+₹2,507',msg)
+        self.assertIn('Silver (999)',msg)
+        self.assertIn('₹1,82,000',msg)
+        self.assertIn('🔺',msg)
+        self.assertNotIn('7-day change',msg)
         self.assertIn('GST',msg)
 
     def test_stale_fails(self):
