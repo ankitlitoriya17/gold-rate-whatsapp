@@ -1,6 +1,6 @@
 # Datia Gold Rates → WhatsApp
 
-Daily 9:00 AM Asia/Kolkata scheduled alerts containing 24K (999) and 22K (916) published IBJA closing benchmark prices, daily change and seven-day comparison. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in recipients.
+Daily 9:00 AM Asia/Kolkata scheduled alerts containing 24K (999) and 22K (916) published IBJA closing benchmark prices, daily change and seven-day comparison. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
 
 **Status on initial setup: preview mode.** WhatsApp sends do not happen unless the GitHub Actions variable `SEND_ENABLED` is explicitly set to `true` and a run is not a dry run. GREEN-API is not an approved Meta Cloud API and WhatsApp accounts may be restricted or disconnected. GitHub scheduled jobs can be delayed.
 
@@ -12,8 +12,9 @@ Go to **Settings → Secrets and variables → Actions → Repository secrets**,
 - `GREEN_API_BASE_URL` — exact HTTPS apiUrl displayed in GREEN-API instance dashboard (e.g. `https://7107.api.greenapi.com`)
 - `RECIPIENT_1` — first opted-in recipient's full international phone number (e.g. 919876543210)
 - `RECIPIENT_2` — second distinct opted-in recipient's full international phone number
+- `GROUP_CHAT_ID` (optional) — WhatsApp group ID ending in `@g.us` returned by GREEN-API `getChats` (not the group invite link). Group must include the sender and members should consent to the daily messages.
 
-Never commit recipient numbers or an API token. GREEN-API free Developer tier is limited by number of chats and can change pricing or limits. Use a dedicated sender and ensure recipients consent to automated daily messages.
+The free Developer tariff counts a group as one chat; two individuals plus one group use all three permitted chats. You may need to clear/disconnect other active chats based on provider behavior. Never commit recipient numbers or an API token. GREEN-API free Developer tier is limited by number of chats and can change pricing or limits. Use a dedicated sender and ensure recipients consent to automated daily messages.
 
 ## Validate first
 
@@ -37,3 +38,11 @@ DRY_RUN=true python gold_alert.py
 The previously configured ChatGPT reminder is separate and does not cause WhatsApp sends.
 
 **Security:** The sender's instance ID alone is not a token; never share API token. For any leaked token rotate it immediately in GREEN-API and replace the GitHub secret.
+
+## Optional WhatsApp group
+
+1. Add the sending WhatsApp account to the target group and get the group's consent for daily gold updates.
+2. In GREEN-API documentation, use the `getChats` method (from the authorized instance) to find the **group chat ID** ending in `@g.us`; do not use the group's invite link or name.
+3. Add the ID to the private GitHub Actions secret `GROUP_CHAT_ID`. No code changes or other secret changes required.
+4. Run a `dry_run=true` preview, then (only if sending is already authorized and enabled) run a live test and confirm it appears in the group.
+5. To stop sending to the group, delete the `GROUP_CHAT_ID` secret; the two individual recipients continue working.
