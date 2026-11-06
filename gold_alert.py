@@ -137,7 +137,7 @@ def build_message(docs, today=None):
         'ℹ️ IBJA India benchmark; Datia shop rates may differ. GST & making extra.',
         'Source: IBJA via TrackLivePrice',
     ])
-    return '\\n'.join(lines)
+    return '\n'.join(lines)
 
 
 def api_base():
