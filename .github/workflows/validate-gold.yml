@@ -1,0 +1,26 @@
+name: Verify gold data (no WhatsApp sends)
+on:
+  push:
+    paths:
+      - "gold_alert.py"
+      - "tests/**"
+      - ".github/workflows/validate-gold.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Preview live prices (never sends WhatsApp)
+        env:
+          DRY_RUN: "true"
+          SEND_ENABLED: "false"
+        run: python gold_alert.py
