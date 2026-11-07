@@ -56,7 +56,10 @@ class RetryTests(unittest.TestCase):
         self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 7, 8, 59, tzinfo=z)))
         self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 9, 17, tzinfo=z)))
         self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 10, 8, tzinfo=z)))
-        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 7, 10, 21, tzinfo=z)))
+        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 10, 21, tzinfo=z)))
+        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 11, 0, tzinfo=z)))
+        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 11, 20, tzinfo=z)))
+        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 7, 11, 21, tzinfo=z)))
 
     def test_live_send_then_retry_skips_both(self):
         env = {'GREEN_API_INSTANCE_ID': '123456789',
