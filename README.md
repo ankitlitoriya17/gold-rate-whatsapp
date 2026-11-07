@@ -24,7 +24,7 @@ The free Developer tariff counts a group as one chat; two individuals plus one g
 4. Inspect logs: data source may fail or change schema. Any error blocks sending instead of inventing prices.
 5. After a successful preview and confirming both recipients opted in, add the **Actions variable** `SEND_ENABLED=true` under **Settings → Secrets and variables → Actions → Variables**.
 6. Run again with `dry_run=false` to attempt sending a test to *both* recipients; check actual delivery in WhatsApp.
-7. Scheduled attempts run at **09:00, 09:17, 09:34, 09:51 and 10:08 IST**. GitHub can still delay or drop them.
+7. Scheduled attempts run at **09:00, 09:17, 09:34, 09:51, 10:08 and 11:00 IST**. GitHub can still delay or drop them.
 
 Data: https://trackliveprice.com/api/gold/999.json, https://trackliveprice.com/api/gold/916.json and https://trackliveprice.com/api/silver.json . Attribution required by TrackLivePrice. The national IBJA benchmark is **not** a confirmed Datia local jewellery retail price, and GST/making charges are excluded. At 9 AM latest confirmed prior PM price is usually the previous working day's; weekends and holidays reuse prior sessions. Old or unverified data is rejected.
 
@@ -49,7 +49,7 @@ The previously configured ChatGPT reminder is separate and does not cause WhatsA
 
 ## Automatic retries and duplicate protection
 
-The daily workflow has five chances: **09:00 / 09:17 / 09:34 / 09:51 / 10:08 IST**. A scheduled event arriving after 10:20 IST is skipped. Runs share one concurrency group to prevent overlap.
+The daily workflow has six chances: **09:00 / 09:17 / 09:34 / 09:51 / 10:08 / 11:00 IST**. A scheduled event arriving after 11:20 IST is skipped. Runs share one concurrency group to prevent overlap.
 
 When live sending is enabled, GitHub Actions uses its built-in `GITHUB_TOKEN` with `contents: write` to record daily destination attempts in `.delivery-state.json` in this private repository. Each entry uses a SHA-256-derived identifier, not a raw phone number or group ID.
 
