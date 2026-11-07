@@ -1,6 +1,8 @@
 import json
 import os
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from copy import deepcopy
 from datetime import datetime
 from unittest.mock import patch
@@ -108,8 +110,10 @@ class RetryTests(unittest.TestCase):
 
         now = datetime(2026, 11, 7, 9, 17, tzinfo=gold_alert.TZ)
         with patch.dict(os.environ, env, clear=True), patch.object(gold_alert, 'call_api', side_effect=fake_api):
-            gold_alert.send('Daily message', now=now, ledger=self.ledger)
-            gold_alert.send('Daily message', now=now, ledger=self.ledger)
+            # These are mocked API replies, not real WhatsApp deliveries.
+            with redirect_stdout(StringIO()):
+                gold_alert.send('Daily message', now=now, ledger=self.ledger)
+                gold_alert.send('Daily message', now=now, ledger=self.ledger)
         self.assertEqual(sent, list(self.chats))
 
     def test_partial_failure_does_not_resend_first_or_ambiguous_second(self):
@@ -128,9 +132,10 @@ class RetryTests(unittest.TestCase):
 
         now = datetime(2026, 11, 7, 9, 17, tzinfo=gold_alert.TZ)
         with patch.dict(os.environ, env, clear=True), patch.object(gold_alert, 'call_api', side_effect=fake_api):
-            with self.assertRaisesRegex(RuntimeError, 'Ambiguous network failure'):
+            with redirect_stdout(StringIO()):
+                with self.assertRaisesRegex(RuntimeError, 'Ambiguous network failure'):
+                    gold_alert.send('Daily message', now=now, ledger=self.ledger)
                 gold_alert.send('Daily message', now=now, ledger=self.ledger)
-            gold_alert.send('Daily message', now=now, ledger=self.ledger)
         self.assertEqual(attempted, list(self.chats))
         self.assertEqual(self.ledger.store[self.day][self.ledger.key(self.chats[0])]['status'], 'queued')
         self.assertEqual(self.ledger.store[self.day][self.ledger.key(self.chats[1])]['status'], 'review')
