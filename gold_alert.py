@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
+from delivery_ledger import DeliveryLedger
 
 TZ = ZoneInfo('Asia/Kolkata')
 SOURCE = 'https://trackliveprice.com'
@@ -195,7 +196,12 @@ def call_api(url, payload=None):
         raise RuntimeError('GREEN-API network connection failed') from None
 
 
-def send(message):
+def in_delivery_window(now):
+    """Scheduled retries only send between 09:00 and 10:20 Asia/Kolkata."""
+    return (now.hour == 9 or (now.hour == 10 and now.minute <= 20))
+
+
+def send(message, now=None, ledger=None):
     needed = ('GREEN_API_INSTANCE_ID', 'GREEN_API_TOKEN',
               'RECIPIENT_1', 'RECIPIENT_2')
     missing = [name for name in needed if not os.environ.get(name)]
@@ -210,27 +216,53 @@ def send(message):
     state = call_api(f'{prefix}/getStateInstance/{token}')
     if state.get('stateInstance') != 'authorized':
         raise RuntimeError('GREEN-API is not authorized; no messages queued')
+
+    if ledger is None:
+        ledger = DeliveryLedger(os.environ.get('GITHUB_REPOSITORY'),
+                                os.environ.get('GITHUB_TOKEN'))
+    alert_day = (now or datetime.now(TZ)).date().isoformat()
+
     for index, chat in enumerate(chats, start=1):
-        result = call_api(f'{prefix}/sendMessage/{token}',
-                          {'chatId': chat, 'message': message})
         label = 'WhatsApp group' if chat.endswith('@g.us') else f'Recipient {index}'
-        if not result.get('idMessage'):
-            raise RuntimeError(f'{label}: API did not confirm queue acceptance')
-        print(f'{label}: message queued (delivery not independently confirmed)')
+        # Commit attempt BEFORE calling GREEN-API. Avoid resending on uncertain
+        # timeout/crash: a claimed destination requires manual review.
+        if not ledger.claim(alert_day, chat):
+            print(f'{label}: already attempted today; skipping duplicate')
+            continue
+        try:
+            result = call_api(f'{prefix}/sendMessage/{token}',
+                              {'chatId': chat, 'message': message})
+            message_id = result.get('idMessage')
+            if not message_id:
+                raise RuntimeError(f'{label}: API did not confirm queue acceptance')
+            ledger.update(alert_day, chat, 'queued', message_id)
+        except Exception:
+            # An unsuccessful POST may still have reached the provider;
+            # do not blindly retry and accidentally deliver duplicates.
+            try:
+                ledger.update(alert_day, chat, 'review')
+            except Exception:
+                pass
+            raise
+        print(f'{label}: accepted by API and receipt recorded (delivery unconfirmed)')
 
 
 def main():
+    now = datetime.now(TZ)
+    if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' and not in_delivery_window(now):
+        print('Scheduled event arrived outside 09:00–10:20 IST; no messages sent')
+        return
+
     docs = {p: fetch_json(API_GOLD.format(purity=p)) for p in ('999', '916')}
     docs['silver'] = fetch_json(API_SILVER)
-    message = build_message(docs)
+    message = build_message(docs, now.date())
     dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
     enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
     if dry or not enabled:
         print('PREVIEW ONLY — no WhatsApp messages sent')
         print(message)
         return
-    send(message)
-
+    send(message, now=now)
 
 if __name__ == '__main__':
     try:
