@@ -17,7 +17,7 @@ on:
         description: Preview only; do not send
         type: boolean
         required: true
-        default: true
+        default: false
 permissions:
   contents: write
 concurrency:
