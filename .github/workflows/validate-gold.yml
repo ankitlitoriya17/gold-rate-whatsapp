@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - "gold_alert.py"
+      - "delivery_ledger.py"
       - "tests/**"
       - ".github/workflows/validate-gold.yml"
   workflow_dispatch:
