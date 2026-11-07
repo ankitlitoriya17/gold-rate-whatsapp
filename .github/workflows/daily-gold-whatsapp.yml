@@ -17,6 +17,11 @@ on:
         description: Preview only; do not send
         type: boolean
         required: true
+        default: true
+      enforce_window:
+        description: External scheduler only - reject runs outside 09:00-11:20 IST
+        type: boolean
+        required: false
         default: false
 permissions:
   contents: write
@@ -44,5 +49,6 @@ jobs:
           GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          ENFORCE_DELIVERY_WINDOW: ${{ github.event_name == 'workflow_dispatch' && inputs.enforce_window || false }}
           SEND_ENABLED: ${{ vars.SEND_ENABLED }}
         run: python gold_alert.py
