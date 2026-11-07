@@ -1,8 +1,12 @@
 name: Daily Datia Gold WhatsApp
 on:
   schedule:
-    # Explicit local timezone; 09:00 Asia/Kolkata daily
+    # Primary 09:00 IST; retries avoid the top of the hour where possible.
     - cron: '0 9 * * *'
+      timezone: 'Asia/Kolkata'
+    - cron: '17,34,51 9 * * *'
+      timezone: 'Asia/Kolkata'
+    - cron: '8 10 * * *'
       timezone: 'Asia/Kolkata'
   workflow_dispatch:
     inputs:
@@ -12,7 +16,7 @@ on:
         required: true
         default: true
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: datia-daily-gold-rate
   cancel-in-progress: false
@@ -35,6 +39,7 @@ jobs:
           RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
           RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}
           GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
           SEND_ENABLED: ${{ vars.SEND_ENABLED }}
         run: python gold_alert.py
