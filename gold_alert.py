@@ -197,8 +197,8 @@ def call_api(url, payload=None):
 
 
 def in_delivery_window(now):
-    """Scheduled retries only send between 09:00 and 10:20 Asia/Kolkata."""
-    return (now.hour == 9 or (now.hour == 10 and now.minute <= 20))
+    """Scheduled retries only send between 09:00 and 11:20 Asia/Kolkata."""
+    return (now.hour in (9, 10) or (now.hour == 11 and now.minute <= 20))
 
 
 def send(message, now=None, ledger=None):
@@ -250,7 +250,7 @@ def send(message, now=None, ledger=None):
 def main():
     now = datetime.now(TZ)
     if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' and not in_delivery_window(now):
-        print('Scheduled event arrived outside 09:00–10:20 IST; no messages sent')
+        print('Scheduled event arrived outside 09:00–11:20 IST; no messages sent')
         return
 
     docs = {p: fetch_json(API_GOLD.format(purity=p)) for p in ('999', '916')}
