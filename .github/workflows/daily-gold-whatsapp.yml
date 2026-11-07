@@ -8,6 +8,9 @@ on:
       timezone: 'Asia/Kolkata'
     - cron: '8 10 * * *'
       timezone: 'Asia/Kolkata'
+    # Final recovery slot at 11 AM IST.
+    - cron: '0 11 * * *'
+      timezone: 'Asia/Kolkata'
   workflow_dispatch:
     inputs:
       dry_run:
