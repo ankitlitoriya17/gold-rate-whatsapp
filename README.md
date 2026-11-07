@@ -1,3 +1,5 @@
+[![Daily Datia Gold WhatsApp](https://github.com/ankitlitoriya17/gold-rate-whatsapp/actions/workflows/daily-gold-whatsapp.yml/badge.svg)](https://github.com/ankitlitoriya17/gold-rate-whatsapp/actions/workflows/daily-gold-whatsapp.yml)
+
 # Datia Gold Rates → WhatsApp
 
 Daily 9:00 AM Asia/Kolkata scheduled short Hinglish alerts containing IBJA benchmark closing prices for 24K gold (per 10g), 22K gold (per 10g), and silver 999 (per kg), with changes from the previous closing session. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
