@@ -249,8 +249,9 @@ def send(message, now=None, ledger=None):
 
 def main():
     now = datetime.now(TZ)
-    if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' and not in_delivery_window(now):
-        print('Scheduled event arrived outside 09:00–11:20 IST; no messages sent')
+    external = os.environ.get('ENFORCE_DELIVERY_WINDOW', '').strip().lower() in ('1', 'true', 'yes')
+    if (os.environ.get('GITHUB_EVENT_NAME') == 'schedule' or external) and not in_delivery_window(now):
+        print('Automated trigger arrived outside 09:00–11:20 IST; no messages sent')
         return
 
     docs = {p: fetch_json(API_GOLD.format(purity=p)) for p in ('999', '916')}
