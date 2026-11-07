@@ -24,7 +24,7 @@ The free Developer tariff counts a group as one chat; two individuals plus one g
 4. Inspect logs: data source may fail or change schema. Any error blocks sending instead of inventing prices.
 5. After a successful preview and confirming both recipients opted in, add the **Actions variable** `SEND_ENABLED=true` under **Settings → Secrets and variables → Actions → Variables**.
 6. Run again with `dry_run=false` to attempt sending a test to *both* recipients; check actual delivery in WhatsApp.
-7. Scheduled workflow uses cron `30 3 * * *` UTC, equivalent to 09:00 IST; GitHub may delay runs.
+7. Scheduled attempts run at **09:00, 09:17, 09:34, 09:51 and 10:08 IST**. GitHub can still delay or drop them.
 
 Data: https://trackliveprice.com/api/gold/999.json, https://trackliveprice.com/api/gold/916.json and https://trackliveprice.com/api/silver.json . Attribution required by TrackLivePrice. The national IBJA benchmark is **not** a confirmed Datia local jewellery retail price, and GST/making charges are excluded. At 9 AM latest confirmed prior PM price is usually the previous working day's; weekends and holidays reuse prior sessions. Old or unverified data is rejected.
 
@@ -46,3 +46,20 @@ The previously configured ChatGPT reminder is separate and does not cause WhatsA
 3. Add the ID to the private GitHub Actions secret `GROUP_CHAT_ID`. No code changes or other secret changes required.
 4. Run a `dry_run=true` preview, then (only if sending is already authorized and enabled) run a live test and confirm it appears in the group.
 5. To stop sending to the group, delete the `GROUP_CHAT_ID` secret; the two individual recipients continue working.
+
+## Automatic retries and duplicate protection
+
+The daily workflow has five chances: **09:00 / 09:17 / 09:34 / 09:51 / 10:08 IST**. A scheduled event arriving after 10:20 IST is skipped. Runs share one concurrency group to prevent overlap.
+
+When live sending is enabled, GitHub Actions uses its built-in `GITHUB_TOKEN` with `contents: write` to record daily destination attempts in `.delivery-state.json` in this private repository. Each entry uses a SHA-256-derived identifier, not a raw phone number or group ID.
+
+- Before contacting GREEN-API, the script commits an **attempting** claim for the particular recipient or group.
+- After GREEN-API returns `idMessage`, it commits a **queued** receipt.
+- Later retries skip any claimed destination that day, even if a prior run was interrupted.
+- If price retrieval fails or GREEN-API is unauthorized, no claims are created, so later runs may retry.
+- If an outbound send has an uncertain result, the claim remains under **review** and is **not automatically resent**. Check WhatsApp/provider journal before resetting it manually.
+- API queue acceptance is **not guaranteed WhatsApp delivery**.
+
+Because GitHub and WhatsApp cannot commit a single atomic transaction, exactly-once delivery cannot be guaranteed. The workflow prioritizes avoiding duplicate messages over retrying uncertain sends. GitHub itself can still drop all scheduled attempts.
+
+Preview runs do not create or change delivery state. The ledger is created at the first live send. Do not remove a daily state entry unless a resend is intended.
