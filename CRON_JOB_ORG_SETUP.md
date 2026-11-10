@@ -1,8 +1,8 @@
 # Free cron-job.org external trigger for Datia WhatsApp rates
 
-This guide configures cron-job.org to dispatch the existing private GitHub Actions workflow. It does not move GREEN-API credentials or recipient phone numbers to cron-job.org.
+This guide configures cron-job.org to dispatch the existing private GitHub Actions workflow. **Important November 2026 update:** Gold and Silver must BOTH have today's dated Aaj Tak Datia city quotation before an alert is sent; earlier 9 AM cron jobs should be moved to the new hours. An old external trigger before 11 AM now exits without sending. It does not move GREEN-API credentials or recipient phone numbers to cron-job.org.
 
-**Schedule:** one cron-job.org job, at **09:07, 10:07, 11:07** every day in **Asia/Kolkata**, as independent backup to the existing GitHub schedules. The same daily ledger is used regardless of which trigger fires. A dispatch may return HTTP 200 before the workflow has actually completed; check the linked Actions run for delivery attempt and queue status.
+**Schedule:** one cron-job.org job, at **11:17, 12:17, 13:17** every day in **Asia/Kolkata**, as independent backup to the existing GitHub schedules. The same daily ledger is used regardless of which trigger fires. A dispatch may return HTTP 200 before the workflow has actually completed; check the linked Actions run for delivery attempt and queue status.
 
 ## 1. Fine-grained GitHub personal access token
 
@@ -22,8 +22,8 @@ This PAT is only for the cron-job.org → GitHub workflow-dispatch HTTP call. Do
 | URL | `https://api.github.com/repos/ankitlitoriya17/gold-rate-whatsapp/actions/workflows/daily-gold-whatsapp.yml/dispatches` |
 | Method | `POST` |
 | Timezone | `Asia/Kolkata` |
-| Hours | `9`, `10`, `11` |
-| Minutes | `07` |
+| Hours | `11`, `12`, `13` |
+| Minutes | `17` |
 | Days | Every day (including weekends) |
 | Timeout | 30 seconds, if configurable |
 | Status notification | Enable HTTP failure notifications |
@@ -56,7 +56,7 @@ If the console offers to record request headers and responses, **disable recordi
 
 ## 3. Test without WhatsApp delivery
 
-For a safe test, **temporarily** set `inputs.dry_run` in the job body to `"true"` and keep `enforce_window` `"true"`. At times outside the 09:00–11:20 IST window, the guarded job exits before building the preview. You can also test the request itself and look for GitHub's 200 response and resulting `workflow_dispatch` run; it won't send a WhatsApp message when `dry_run=true`.
+For a safe test, **temporarily** set `inputs.dry_run` in the job body to `"true"` and keep `enforce_window` `"true"`. At times outside the 11:00–13:45 IST window, the guarded job exits before building the preview. You can also test the request itself and look for GitHub's 200 response and resulting `workflow_dispatch` run; it won't send a WhatsApp message when `dry_run=true`.
 
 After verification, restore `dry_run=false`, save the job and confirm the console shows the next three scheduled times. This sets future live sends; the repository variable `SEND_ENABLED=true` must also be set. Schedule-triggered runs use the same server-side recipient-day ledger, suppressing duplicates.
 
@@ -72,7 +72,7 @@ GitHub workflow: https://github.com/ankitlitoriya17/gold-rate-whatsapp/actions/w
 ## Notes
 
 - No external scheduler can guarantee on-time delivery. cron-job.org can be delayed and GitHub Actions may be unavailable.
-- The 09:00–11:20 local time window is enforced for automatic external dispatches. Late jobs do not send outdated alerts outside the window.
+- The 11:00–13:45 local time window is enforced for automatic external dispatches. Late jobs do not send outdated alerts outside the window.
 - For live testing outside the delivery window, use GitHub's manual workflow instead of temporarily removing the guard.
 - Tokens with expiration need routine rotation or subsequent scheduled calls will fail.
 - GREEN-API is an unofficial WhatsApp integration with account restrictions and delivery uncertainty.
