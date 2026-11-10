@@ -1,0 +1,35 @@
+name: Probe Datia rate website (no sends)
+on:
+  push:
+    paths:
+      - '.github/workflows/probe-datia.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Check source HTML structure
+        run: |
+          python - <<'PY'
+          import html,re,urllib.request
+          for metal in ('gold','silver'):
+              url=f'https://www.aajtak.in/commodity/{metal}-rate-in-datia-today'
+              print('===',metal,'===')
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 (compatible; datia-rates-check/1.0)','Accept':'text/html'})
+                  with urllib.request.urlopen(req,timeout=18) as r:
+                      body=r.read(4000000).decode('utf-8','replace')
+                      print('http',r.status,'length',len(body),'content-type',r.headers.get('Content-Type'))
+                  text=html.unescape(re.sub(r'<[^>]+>',' ',body))
+                  text=re.sub(r'\s+',' ',text)
+                  for term in ('Last Updated @','दतिया में आज 24 कैरेट','दतिया में आज 22 कैरेट','दतिया में आज चांदी','₹1,43,560','₹2,20,900'):
+                      i=text.find(term)
+                      print(term,':',repr(text[max(0,i-100):i+290]) if i>=0 else 'not found')
+                  for term in ('Last Updated @','Gold Price','Silver Price','24 Karat','22 Karat'):
+                      i=body.find(term)
+                      print('html:',term,repr(body[max(0,i-150):i+260]) if i>=0 else 'not found')
+              except Exception as e:
+                  print('FETCH ERROR',type(e).__name__,str(e)[:220])
+          PY
