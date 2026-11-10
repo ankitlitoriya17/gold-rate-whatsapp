@@ -40,6 +40,29 @@ class GoldTest(unittest.TestCase):
         self.assertNotIn('7-day change',msg)
         self.assertIn('GST',msg)
 
+    def test_old_rates_are_labelled_not_new_daily_falls(self):
+        msg = build_message(self.docs, date(2026, 11, 10))
+        self.assertIn('Report: 10 Nov 2026', msg)
+        self.assertIn('Latest IBJA rate: *05 Nov 2026 (PM)*', msg)
+        self.assertIn('Naya IBJA rate abhi available nahi hai', msg)
+        self.assertIn('₹1,44,129', msg)
+        self.assertNotIn('🔺', msg)
+        self.assertNotIn('🔻', msg)
+        self.assertNotIn('Change vs pichhle published', msg)
+
+    def test_weekend_uses_friday_without_fake_daily_move(self):
+        from copy import deepcopy
+        docs = deepcopy(self.docs)
+        for purity in ('999', '916'):
+            docs[purity]['rows'].append({'date': '2026-11-06', 'pm': 14300})
+        docs['silver']['rows'].append({'date': '2026-11-06', 'pm': 185})
+        msg = build_message(docs, date(2026, 11, 8))
+        self.assertIn('Report: 08 Nov 2026', msg)
+        self.assertIn('Latest IBJA rate: *06 Nov 2026 (PM)*', msg)
+        self.assertIn('Weekend', msg)
+        self.assertNotIn('🔺', msg)
+        self.assertNotIn('🔻', msg)
+
     def test_stale_fails(self):
         with self.assertRaises(ValueError):
             latest_common_close(self.docs,date(2026,11,25))
