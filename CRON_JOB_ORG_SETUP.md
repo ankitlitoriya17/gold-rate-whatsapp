@@ -2,7 +2,7 @@
 
 This guide configures cron-job.org to dispatch the existing private GitHub Actions workflow. **Important November 2026 update:** Gold and Silver must BOTH have today's dated Aaj Tak Datia city quotation before an alert is sent; earlier 9 AM cron jobs should be moved to the new hours. An old external trigger before 11 AM now exits without sending. It does not move GREEN-API credentials or recipient phone numbers to cron-job.org.
 
-**Schedule:** one cron-job.org job, at **11:17, 12:17, 13:17** every day in **Asia/Kolkata**, as independent backup to the existing GitHub schedules. The same daily ledger is used regardless of which trigger fires. A dispatch may return HTTP 200 before the workflow has actually completed; check the linked Actions run for delivery attempt and queue status.
+**Schedule:** one cron-job.org job, at **11:17, 12:17, 13:17** every day in **Asia/Kolkata**, as the **only automatic scheduling source**; GitHub's internal `on.schedule` entries have been removed. The same daily ledger is used regardless of which trigger fires. A dispatch may return HTTP 200 before the workflow has actually completed; check the linked Actions run for delivery attempt and queue status.
 
 ## 1. Fine-grained GitHub personal access token
 
@@ -67,7 +67,7 @@ After verification, restore `dry_run=false`, save the job and confirm the consol
 3. The run's job log may report `already attempted today; skipping duplicate`, or `accepted by API and receipt recorded`.
 4. The private `.delivery-state.json` stores hashed per-recipient-day attempt state. If a send is recorded as `review`, do not reset without checking whether it reached WhatsApp.
 
-GitHub workflow: https://github.com/ankitlitoriya17/gold-rate-whatsapp/actions/workflows/daily-gold-whatsapp.yml
+GitHub workflow (manual or external dispatch only): https://github.com/ankitlitoriya17/gold-rate-whatsapp/actions/workflows/daily-gold-whatsapp.yml
 
 ## Notes
 
