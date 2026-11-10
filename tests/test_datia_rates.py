@@ -91,7 +91,7 @@ class DatiaSourceTest(unittest.TestCase):
             extract_price_card(self.silver, 'Gold')
 
     def test_inconsistent_or_implausible_rates_rejected(self):
-        bad = self.gold.replace('₹1,44,610', '₹90,000')
+        bad = self.gold.replace('₹144,610', '₹90,000')
         with patch('datia_rates.fetch_html', side_effect=[bad, self.silver]):
             with self.assertRaisesRegex(PriceDataNotReady,'Implausible'):
                 fetch_datia_quote(date(2026, 11, 10))
