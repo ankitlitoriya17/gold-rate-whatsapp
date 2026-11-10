@@ -117,7 +117,15 @@ def fetch_datia_quote(today=None):
 def format_datia_message(quote):
     published = quote['published']
     def money(value):
-        return '₹' + format(int(value), ',')
+        digits = str(int(value))
+        if len(digits) <= 3:
+            return '₹' + digits
+        rest, suffix = digits[:-3], digits[-3:]
+        groups = []
+        while rest:
+            groups.append(rest[-2:])
+            rest = rest[:-2]
+        return '₹' + ','.join(reversed(groups)) + ',' + suffix
     def movement(value):
         if value is None:
             return ''
