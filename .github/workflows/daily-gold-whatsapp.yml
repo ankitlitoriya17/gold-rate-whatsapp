@@ -1,14 +1,5 @@
-name: Daily Datia Gold WhatsApp
+name: Datia Gold WhatsApp (External Trigger)
 on:
-  schedule:
-    # Prefer fresh Datia city quotations, published later in the morning.
-    # Source date is rechecked on EVERY run; nothing is sent before both pages update.
-    - cron: '15,45 11 * * *'
-      timezone: 'Asia/Kolkata'
-    - cron: '15,45 12 * * *'
-      timezone: 'Asia/Kolkata'
-    - cron: '15 13 * * *'
-      timezone: 'Asia/Kolkata'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -17,7 +8,7 @@ on:
         required: true
         default: true
       enforce_window:
-        description: External scheduler only - reject runs outside 11:00-13:45 IST
+        description: Require 11:00–13:45 IST for external scheduled dispatches
         type: boolean
         required: false
         default: false
