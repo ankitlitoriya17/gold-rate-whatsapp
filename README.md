@@ -2,7 +2,7 @@
 
 # Datia Gold Rates → WhatsApp
 
-Daily late-morning Hinglish alerts using Aaj Tak's dated **Datia local indicative quotations** for 24K gold (per 10g), 22K gold (per 10g), and Silver 999 (per kg). Unlike the national IBJA benchmark feed, the source must publish the **current IST calendar date on both Gold and Silver pages** before the script can send. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
+Externally triggered late-morning Hinglish alerts using Aaj Tak's dated **Datia local indicative quotations** for 24K gold (per 10g), 22K gold (per 10g), and Silver 999 (per kg). Unlike the national IBJA benchmark feed, the source must publish the **current IST calendar date on both Gold and Silver pages** before the script can send. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
 
 **Safety:** WhatsApp sends do not happen unless the GitHub Actions variable `SEND_ENABLED` is explicitly set to `true` and a run is not a dry run. GREEN-API is not an approved Meta Cloud API and WhatsApp accounts may be restricted or disconnected. GitHub scheduled jobs can be delayed.
 
@@ -26,7 +26,7 @@ The free Developer tariff counts a group as one chat; two individuals plus one g
 4. Inspect logs: data source may fail or change schema. Any error blocks sending instead of inventing prices.
 5. After a successful preview and confirming both recipients opted in, add the **Actions variable** `SEND_ENABLED=true` under **Settings → Secrets and variables → Actions → Variables**.
 6. Run again with `dry_run=false` to attempt sending a test to *both* recipients; check actual delivery in WhatsApp.
-7. Scheduled checks run at **11:15, 11:45, 12:15, 12:45 and 13:15 IST**, only if both Datia rate pages have today's date. GitHub can delay or drop runs.
+7. **Only cron-job.org should automatically dispatch the workflow** at **11:17, 12:17 and 13:17 IST**; edit the external job there. GitHub internal `on.schedule` was removed after repeated late runs.
 
 **Live WhatsApp rate source:** https://www.aajtak.in/commodity/gold-rate-in-datia-today and https://www.aajtak.in/commodity/silver-rate-in-datia-today . These are **indicative city quotations**, not verified individual-jeweller transaction prices nor IBJA benchmark quotes. GST and making charges are excluded. The old TrackLivePrice/IBJA parsing code remains for backward-compatible tests only and is **not used by live WhatsApp sends**. No message is sent if Aaj Tak has not published today's date for both metals.
 
@@ -51,7 +51,7 @@ The previously configured ChatGPT reminder is separate and does not cause WhatsA
 
 ## Automatic retries and duplicate protection
 
-The daily workflow checks **11:15 / 11:45 / 12:15 / 12:45 / 13:15 IST**. A scheduled event arriving outside **11:00–13:45 IST** is skipped. Runs share one concurrency group to prevent overlap; existing external triggers must also be moved to later times.
+The cron-job.org HTTP job should dispatch at **11:17 / 12:17 / 13:17 IST** with `inputs.enforce_window=true` and `dry_run=false`. The GitHub workflow deliberately has **no internal schedule**. Automatic external dispatches arriving outside **11:00–13:45 IST** are skipped. Runs share one concurrency group to prevent overlap. Manual GitHub `Run workflow` remains available.
 
 When live sending is enabled, GitHub Actions uses its built-in `GITHUB_TOKEN` with `contents: write` to record daily destination attempts in `.delivery-state.json` in this private repository. Each entry uses a SHA-256-derived identifier, not a raw phone number or group ID.
 
