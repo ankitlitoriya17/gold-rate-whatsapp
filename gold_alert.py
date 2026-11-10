@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
 from delivery_ledger import DeliveryLedger
+from datia_rates import fetch_datia_quote, format_datia_message, PriceDataNotReady
 
 TZ = ZoneInfo('Asia/Kolkata')
 SOURCE = 'https://trackliveprice.com'
@@ -214,8 +215,8 @@ def call_api(url, payload=None):
 
 
 def in_delivery_window(now):
-    """Scheduled retries only send between 09:00 and 11:20 Asia/Kolkata."""
-    return (now.hour in (9, 10) or (now.hour == 11 and now.minute <= 20))
+    """Scheduled Datia quotes send only 11:00–13:45 IST after source update."""
+    return (now.hour in (11, 12) or (now.hour == 13 and now.minute <= 45))
 
 
 def send(message, now=None, ledger=None):
@@ -268,12 +269,17 @@ def main():
     now = datetime.now(TZ)
     external = os.environ.get('ENFORCE_DELIVERY_WINDOW', '').strip().lower() in ('1', 'true', 'yes')
     if (os.environ.get('GITHUB_EVENT_NAME') == 'schedule' or external) and not in_delivery_window(now):
-        print('Automated trigger arrived outside 09:00–11:20 IST; no messages sent')
+        print('Automated trigger outside 11:00–13:45 IST; no messages sent')
         return
 
-    docs = {p: fetch_json(API_GOLD.format(purity=p)) for p in ('999', '916')}
-    docs['silver'] = fetch_json(API_SILVER)
-    message = build_message(docs, now.date())
+    # Do not claim the day's recipient ledger until BOTH Datia pages carry today's date.
+    # Old IBJA benchmark feeds are intentionally not used for WhatsApp delivery.
+    try:
+        quote = fetch_datia_quote(now.date())
+    except PriceDataNotReady as exc:
+        print(f'DATIA RATES NOT READY: {exc}; no sends or daily ledger claims; later runs may retry')
+        return
+    message = format_datia_message(quote)
     dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
     enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
     if dry or not enabled:
