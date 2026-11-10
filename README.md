@@ -2,9 +2,9 @@
 
 # Datia Gold Rates → WhatsApp
 
-Daily 9:00 AM Asia/Kolkata scheduled short Hinglish alerts containing IBJA benchmark closing prices for 24K gold (per 10g), 22K gold (per 10g), and silver 999 (per kg), with changes from the previous closing session. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
+Daily late-morning Hinglish alerts using Aaj Tak's dated **Datia local indicative quotations** for 24K gold (per 10g), 22K gold (per 10g), and Silver 999 (per kg). Unlike the national IBJA benchmark feed, the source must publish the **current IST calendar date on both Gold and Silver pages** before the script can send. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
 
-**Status on initial setup: preview mode.** WhatsApp sends do not happen unless the GitHub Actions variable `SEND_ENABLED` is explicitly set to `true` and a run is not a dry run. GREEN-API is not an approved Meta Cloud API and WhatsApp accounts may be restricted or disconnected. GitHub scheduled jobs can be delayed.
+**Safety:** WhatsApp sends do not happen unless the GitHub Actions variable `SEND_ENABLED` is explicitly set to `true` and a run is not a dry run. GREEN-API is not an approved Meta Cloud API and WhatsApp accounts may be restricted or disconnected. GitHub scheduled jobs can be delayed.
 
 ## Secure configuration
 
@@ -26,9 +26,9 @@ The free Developer tariff counts a group as one chat; two individuals plus one g
 4. Inspect logs: data source may fail or change schema. Any error blocks sending instead of inventing prices.
 5. After a successful preview and confirming both recipients opted in, add the **Actions variable** `SEND_ENABLED=true` under **Settings → Secrets and variables → Actions → Variables**.
 6. Run again with `dry_run=false` to attempt sending a test to *both* recipients; check actual delivery in WhatsApp.
-7. Scheduled attempts run at **09:00, 09:17, 09:34, 09:51, 10:08 and 11:00 IST**. GitHub can still delay or drop them.
+7. Scheduled checks run at **11:15, 11:45, 12:15, 12:45 and 13:15 IST**, only if both Datia rate pages have today's date. GitHub can delay or drop runs.
 
-Data: https://trackliveprice.com/api/gold/999.json, https://trackliveprice.com/api/gold/916.json and https://trackliveprice.com/api/silver.json . Attribution required by TrackLivePrice. The national IBJA benchmark is **not** a confirmed Datia local jewellery retail price, and GST/making charges are excluded. At 9 AM latest confirmed prior PM price is usually the previous working day's; weekends and holidays reuse prior sessions. Old or unverified data is rejected.
+**Live WhatsApp rate source:** https://www.aajtak.in/commodity/gold-rate-in-datia-today and https://www.aajtak.in/commodity/silver-rate-in-datia-today . These are **indicative city quotations**, not verified individual-jeweller transaction prices nor IBJA benchmark quotes. GST and making charges are excluded. The old TrackLivePrice/IBJA parsing code remains for backward-compatible tests only and is **not used by live WhatsApp sends**. No message is sent if Aaj Tak has not published today's date for both metals.
 
 ## Local tests
 
@@ -51,14 +51,14 @@ The previously configured ChatGPT reminder is separate and does not cause WhatsA
 
 ## Automatic retries and duplicate protection
 
-The daily workflow has six chances: **09:00 / 09:17 / 09:34 / 09:51 / 10:08 / 11:00 IST**. A scheduled event arriving after 11:20 IST is skipped. Runs share one concurrency group to prevent overlap.
+The daily workflow checks **11:15 / 11:45 / 12:15 / 12:45 / 13:15 IST**. A scheduled event arriving outside **11:00–13:45 IST** is skipped. Runs share one concurrency group to prevent overlap; existing external triggers must also be moved to later times.
 
 When live sending is enabled, GitHub Actions uses its built-in `GITHUB_TOKEN` with `contents: write` to record daily destination attempts in `.delivery-state.json` in this private repository. Each entry uses a SHA-256-derived identifier, not a raw phone number or group ID.
 
 - Before contacting GREEN-API, the script commits an **attempting** claim for the particular recipient or group.
 - After GREEN-API returns `idMessage`, it commits a **queued** receipt.
 - Later retries skip any claimed destination that day, even if a prior run was interrupted.
-- If price retrieval fails or GREEN-API is unauthorized, no claims are created, so later runs may retry.
+- If either Datia page is stale, missing, or fails to parse, or GREEN-API is unauthorized, no claims are created and later runs may retry. No outdated IBJA data is substituted.
 - If an outbound send has an uncertain result, the claim remains under **review** and is **not automatically resent**. Check WhatsApp/provider journal before resetting it manually.
 - API queue acceptance is **not guaranteed WhatsApp delivery**.
 
