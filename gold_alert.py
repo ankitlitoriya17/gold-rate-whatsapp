@@ -128,7 +128,7 @@ def build_message(docs, today=None):
 
     lines = [
         '🌟 *Datia Gold & Silver Rates*',
-        f'📅 Report: {today.strftime("%d %b %Y")} | 9 AM IST',
+        f'📅 Report: {today.strftime("%d %b %Y")}',
         f'📌 Latest IBJA rate: *{latest.strftime("%d %b %Y")} (PM)*',
         '',
     ]
