@@ -55,45 +55,53 @@ class RetryTests(unittest.TestCase):
     def test_window(self):
         from zoneinfo import ZoneInfo
         z = ZoneInfo('Asia/Kolkata')
-        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 7, 8, 59, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 9, 17, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 10, 8, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 10, 21, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 11, 0, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 7, 11, 20, tzinfo=z)))
-        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 7, 11, 21, tzinfo=z)))
+        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 9, 17, tzinfo=z)))
+        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 10, 21, tzinfo=z)))
+        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 11, 0, tzinfo=z)))
+        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 11, 20, tzinfo=z)))
+        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 13, 45, tzinfo=z)))
+        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 13, 46, tzinfo=z)))
 
     def test_external_delayed_run_exits_before_fetch(self):
         from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 7, 11, 29, tzinfo=ZoneInfo('Asia/Kolkata'))
+        late = datetime(2026, 11, 10, 13, 46, tzinfo=ZoneInfo('Asia/Kolkata'))
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                                       'ENFORCE_DELIVERY_WINDOW': 'true',
                                       'SEND_ENABLED': 'true'}, clear=True):
             with patch.object(gold_alert, 'datetime') as dt, patch.object(
-                    gold_alert, 'fetch_json') as fetch:
+                    gold_alert, 'fetch_datia_quote') as fetch:
                 dt.now.return_value = late
                 gold_alert.main()
                 fetch.assert_not_called()
 
     def test_unrestricted_manual_dry_run_still_allowed(self):
         from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 7, 11, 29, tzinfo=ZoneInfo('Asia/Kolkata'))
-        docs = [
-            {'metal':'gold','purity':'999','source':'IBJA','unit':'INR per gram','rows':[]},
-            {'metal':'gold','purity':'916','source':'IBJA','unit':'INR per gram','rows':[]},
-            {'metal':'silver','purity':'999','source':'IBJA','unit':'INR per gram','rows':[]},
-        ]
+        late = datetime(2026, 11, 10, 14, 0, tzinfo=ZoneInfo('Asia/Kolkata'))
+        quote = {'published':late.date()}
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                                       'DRY_RUN': 'true',
                                       'ENFORCE_DELIVERY_WINDOW': 'false'}, clear=True):
             with patch.object(gold_alert, 'datetime') as dt, patch.object(
-                    gold_alert, 'fetch_json', side_effect=docs) as fetch, patch.object(
-                    gold_alert, 'build_message', return_value='preview only') as msg, patch.object(
+                    gold_alert, 'fetch_datia_quote', return_value=quote) as fetch, patch.object(
+                    gold_alert, 'format_datia_message', return_value='preview only') as msg, patch.object(
                     gold_alert, 'send') as send:
                 dt.now.return_value = late
                 gold_alert.main()
-                self.assertEqual(fetch.call_count, 3)
-                msg.assert_called_once()
+                fetch.assert_called_once_with(late.date())
+                msg.assert_called_once_with(quote)
+                send.assert_not_called()
+
+    def test_stale_site_skip_without_ledger_claim(self):
+        from datia_rates import PriceDataNotReady
+        now = datetime(2026, 11, 10, 11, 15, tzinfo=gold_alert.TZ)
+        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'schedule',
+                                      'SEND_ENABLED': 'true'}, clear=True):
+            with patch.object(gold_alert, 'datetime') as dt, patch.object(
+                    gold_alert, 'fetch_datia_quote',
+                    side_effect=PriceDataNotReady('not yet updated')), patch.object(
+                    gold_alert, 'send') as send:
+                dt.now.return_value = now
+                gold_alert.main()
                 send.assert_not_called()
 
     def test_live_send_then_retry_skips_both(self):
