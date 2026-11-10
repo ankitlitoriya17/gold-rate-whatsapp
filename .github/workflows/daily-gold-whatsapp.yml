@@ -1,15 +1,13 @@
 name: Daily Datia Gold WhatsApp
 on:
   schedule:
-    # Primary 09:00 IST; retries avoid the top of the hour where possible.
-    - cron: '0 9 * * *'
+    # Prefer fresh Datia city quotations, published later in the morning.
+    # Source date is rechecked on EVERY run; nothing is sent before both pages update.
+    - cron: '15,45 11 * * *'
       timezone: 'Asia/Kolkata'
-    - cron: '17,34,51 9 * * *'
+    - cron: '15,45 12 * * *'
       timezone: 'Asia/Kolkata'
-    - cron: '8 10 * * *'
-      timezone: 'Asia/Kolkata'
-    # Final recovery slot at 11 AM IST.
-    - cron: '0 11 * * *'
+    - cron: '15 13 * * *'
       timezone: 'Asia/Kolkata'
   workflow_dispatch:
     inputs:
@@ -19,7 +17,7 @@ on:
         required: true
         default: true
       enforce_window:
-        description: External scheduler only - reject runs outside 09:00-11:20 IST
+        description: External scheduler only - reject runs outside 11:00-13:45 IST
         type: boolean
         required: false
         default: false
