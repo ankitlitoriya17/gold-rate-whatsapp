@@ -120,24 +120,41 @@ def short_change(now, old, multiplier=1):
 def build_message(docs, today=None):
     today = today or datetime.now(TZ).date()
     latest, previous, _week, history = latest_common_close(docs, today)
+    age_days = (today - latest).days
+    # At 09:00 IST it is normal to quote yesterday's official PM benchmark.
+    # On Sunday/Monday the last Friday benchmark is also expected.
+    normal_weekend_gap = today.weekday() in (6, 0) and latest.weekday() == 4 and age_days <= 3
+    no_fresh_rate = age_days > 1 and not normal_weekend_gap
+
     lines = [
-        '🌟 *Datia Gold & Silver Update*',
-        f'📅 {latest.strftime("%d %b %Y")} | IBJA closing rate',
+        '🌟 *Datia Gold & Silver Rates*',
+        f'📅 Report: {today.strftime("%d %b %Y")} | 9 AM IST',
+        f'📌 Latest IBJA rate: *{latest.strftime("%d %b %Y")} (PM)*',
         '',
     ]
+    if no_fresh_rate:
+        lines += ['⚠️ *Naya IBJA rate abhi available nahi hai.*', 'Neeche latest published rates hain, aaj ke naye rates nahi.', '']
+    elif normal_weekend_gap:
+        lines += ['ℹ️ Weekend ke baad naya IBJA benchmark abhi due hai.', '']
+
     for purity, label in (('999', '24K Gold'), ('916', '22K Gold')):
         now = history[purity][latest]
         old = history[purity].get(previous) if previous else None
-        lines.append(f'🟡 *{label}:* {rupees(now * 10)}/10g  {short_change(now, old, 10)}')
+        movement = ('  ' + short_change(now, old, 10)) if not no_fresh_rate and not normal_weekend_gap else ''
+        lines.append(f'🟡 *{label}:* {rupees(now * 10)}/10g{movement}')
     silver = history['silver'][latest]
     old_silver = history['silver'].get(previous) if previous else None
-    lines.extend([
-        f'⚪ *Silver (999):* {rupees(silver * 1000)}/kg  {short_change(silver, old_silver, 1000)}',
+    movement = ('  ' + short_change(silver, old_silver, 1000)) if not no_fresh_rate and not normal_weekend_gap else ''
+    lines += [
+        f'⚪ *Silver (999):* {rupees(silver * 1000)}/kg{movement}',
         '',
-        '↕️ Change vs previous closing rate',
-        'ℹ️ IBJA India benchmark; Datia shop rates may differ. GST & making extra.',
-        'Source: IBJA via TrackLivePrice',
-    ])
+    ]
+    if not no_fresh_rate and not normal_weekend_gap:
+        lines.append('↕️ Change vs pichhle published closing rate')
+    lines += [
+        'ℹ️ India-wide IBJA benchmark; Datia shop rates alag ho sakte hain.',
+        'GST aur making charges extra. Source: IBJA via TrackLivePrice.',
+    ]
     return '\n'.join(lines)
 
 
