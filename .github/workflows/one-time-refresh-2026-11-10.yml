@@ -1,0 +1,57 @@
+name: One-time WhatsApp refresh 2026-11-10
+on:
+  push:
+    paths:
+      - '.manual-refresh-2026-11-10.trigger'
+permissions:
+  contents: write
+concurrency:
+  group: datia-daily-gold-rate
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Verify tests
+        run: python -m unittest discover -s tests -v
+      - name: Resend refreshed format exactly once to configured destinations
+        env:
+          GREEN_API_INSTANCE_ID: ${{ secrets.GREEN_API_INSTANCE_ID }}
+          GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
+          GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
+          RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
+          RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}
+          GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEND_ENABLED: ${{ vars.SEND_ENABLED }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import date, datetime
+          from gold_alert import TZ, API_GOLD, API_SILVER, fetch_json, build_message, send
+          from delivery_ledger import DeliveryLedger
+          now = datetime.now(TZ)
+          if now.date() != date(2026, 11, 10):
+              raise RuntimeError('One-time manual refresh expired: not 10 Nov IST')
+          if os.environ.get('SEND_ENABLED', '').lower() != 'true':
+              raise RuntimeError('Live sends are disabled; nothing sent')
+          docs = {p:fetch_json(API_GOLD.format(purity=p)) for p in ('999','916')}
+          docs['silver'] = fetch_json(API_SILVER)
+          message = build_message(docs, now.date())
+          print('Manual refreshed message (rates must carry original publication date):')
+          print(message)
+          class OneTimeLedger:
+              def __init__(self):
+                  self.base=DeliveryLedger(os.environ['GITHUB_REPOSITORY'],os.environ['GITHUB_TOKEN'])
+              def claim(self, day, chat):
+                  return self.base.claim(day, 'manual-format-refresh-20261110:' + chat)
+              def update(self, day, chat, status, message_id=None):
+                  return self.base.update(day, 'manual-format-refresh-20261110:' + chat, status, message_id)
+          send(message, now=now, ledger=OneTimeLedger())
+          PY
