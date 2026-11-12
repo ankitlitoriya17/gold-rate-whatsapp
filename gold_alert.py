@@ -214,11 +214,6 @@ def call_api(url, payload=None):
         raise RuntimeError('GREEN-API network connection failed') from None
 
 
-def in_delivery_window(now):
-    """External scheduled checks may send from 11:00 to 18:45 IST."""
-    return (11 <= now.hour <= 17 or (now.hour == 18 and now.minute <= 45))
-
-
 def send(message, now=None, ledger=None):
     needed = ('GREEN_API_INSTANCE_ID', 'GREEN_API_TOKEN',
               'RECIPIENT_1', 'RECIPIENT_2')
@@ -267,17 +262,14 @@ def send(message, now=None, ledger=None):
 
 def main():
     now = datetime.now(TZ)
-    external = os.environ.get('ENFORCE_DELIVERY_WINDOW', '').strip().lower() in ('1', 'true', 'yes')
-    if (os.environ.get('GITHUB_EVENT_NAME') == 'schedule' or external) and not in_delivery_window(now):
-        print('Automated trigger outside 11:00–18:45 IST; no messages sent')
-        return
-
-    # Do not claim the day's recipient ledger until BOTH Datia pages carry today's date.
-    # Old IBJA benchmark feeds are intentionally not used for WhatsApp delivery.
+    # External and manual workflow dispatches may run at any time. Never skip a
+    # verified daily report solely because the scheduler was late or the quote
+    # source has not updated. All rates carry their actual publication dates.
+    # Claims are per IST report date and per recipient, avoiding duplicates.
     try:
         quote = fetch_datia_quote(now.date())
     except PriceDataNotReady as exc:
-        print(f'DATIA RATES NOT READY: {exc}; no sends or daily ledger claims; later runs may retry')
+        print(f'DATIA SOURCE UNAVAILABLE/INVALID: {exc}; no sends or ledger claims; later runs may retry')
         return
     message = format_datia_message(quote)
     dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
