@@ -12,6 +12,7 @@ from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
 from delivery_ledger import DeliveryLedger
 from datia_rates import fetch_datia_quote, format_datia_message, PriceDataNotReady
+from market_brief import fetch_market_quotes, format_investor_brief
 
 TZ = ZoneInfo('Asia/Kolkata')
 SOURCE = 'https://trackliveprice.com'
@@ -271,7 +272,10 @@ def main():
     except PriceDataNotReady as exc:
         print(f'DATIA SOURCE UNAVAILABLE/INVALID: {exc}; no sends or ledger claims; later runs may retry')
         return
-    message = format_datia_message(quote)
+    # Extra indicators are best-effort. A failed market provider cannot block
+    # the once-daily dated Gold/Silver WhatsApp alert.
+    markets = fetch_market_quotes(now)
+    message = format_investor_brief(quote, markets, now)
     dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
     enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
     if dry or not enabled:
