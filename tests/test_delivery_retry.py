@@ -60,11 +60,12 @@ class RetryTests(unittest.TestCase):
         self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 11, 0, tzinfo=z)))
         self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 11, 20, tzinfo=z)))
         self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 13, 45, tzinfo=z)))
-        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 13, 46, tzinfo=z)))
+        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 18, 45, tzinfo=z)))
+        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 18, 46, tzinfo=z)))
 
     def test_external_delayed_run_exits_before_fetch(self):
         from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 10, 13, 46, tzinfo=ZoneInfo('Asia/Kolkata'))
+        late = datetime(2026, 11, 10, 18, 46, tzinfo=ZoneInfo('Asia/Kolkata'))
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                                       'ENFORCE_DELIVERY_WINDOW': 'true',
                                       'SEND_ENABLED': 'true'}, clear=True):
@@ -76,7 +77,7 @@ class RetryTests(unittest.TestCase):
 
     def test_unrestricted_manual_dry_run_still_allowed(self):
         from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 10, 14, 0, tzinfo=ZoneInfo('Asia/Kolkata'))
+        late = datetime(2026, 11, 10, 19, 0, tzinfo=ZoneInfo('Asia/Kolkata'))
         quote = {'published':late.date()}
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                                       'DRY_RUN': 'true',
