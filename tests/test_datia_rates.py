@@ -55,7 +55,7 @@ class DatiaSourceTest(unittest.TestCase):
             rates = fetch_datia_quote(date(2026, 11, 10))
         self.assertEqual(fetch.call_count, 2)
         msg = format_datia_message(rates)
-        self.assertIn('10 Nov 2026 | Datia City Quote', msg)
+        self.assertIn('Report: 10 Nov 2026', msg)
         self.assertIn('₹1,44,610', msg)  # normalized Indian commas checked in other test
         self.assertIn('₹1,32,560', msg)
         self.assertIn('₹2,20,900', msg)
@@ -64,28 +64,44 @@ class DatiaSourceTest(unittest.TestCase):
         self.assertIn('Aaj Tak', msg)
         self.assertNotIn('IBJA', msg)
 
-    def test_stale_gold_refuses_to_send(self):
+    def test_latest_old_gold_is_sent_with_original_date(self):
         outdated = self.gold.replace('10/11/2026', '09/11/2026')
         with patch('datia_rates.fetch_html', side_effect=[outdated, self.silver]):
-            with self.assertRaisesRegex(PriceDataNotReady, 'not yet updated'):
-                fetch_datia_quote(date(2026, 11, 10))
+            quote = fetch_datia_quote(date(2026, 11, 10))
+        self.assertEqual(quote['published'], date(2026, 11, 9))
+        self.assertEqual(quote['report_date'], date(2026, 11, 10))
+        message = format_datia_message(quote)
+        self.assertIn('Report: 10 Nov 2026', message)
+        self.assertIn('Gold quote date: *09 Nov 2026* (latest, NOT today)', message)
+        self.assertIn('₹1,44,610/10g', message)
+        self.assertNotIn('🔺', message)
+        self.assertNotIn('🔻', message)
 
-    def test_recent_silver_displays_original_date(self):
+    def test_stale_silver_displays_original_date(self):
         outdated = self.silver.replace('10/11/2026', '08/11/2026')
         with patch('datia_rates.fetch_html', side_effect=[self.gold, outdated]):
             quote = fetch_datia_quote(date(2026, 11, 10))
         self.assertEqual(quote['silver_published'], date(2026, 11, 8))
         message = format_datia_message(quote)
-        self.assertIn('Silver ka latest published quote 08 Nov 2026 ka hai, aaj ka nahi.', message)
-        self.assertIn('Gold change vs pichhla quoted rate', message)
+        self.assertIn('Silver quote date: *08 Nov 2026* (latest, NOT today)', message)
+        self.assertIn('Arrows sirf aaj', message)
         self.assertNotIn('↔️ Same', message)
 
-    def test_very_old_silver_or_future_silver_refuses_to_send(self):
-        for day in ('06/11/2026', '11/11/2026'):
-            with self.subTest(day=day):
-                outdated = self.silver.replace('10/11/2026', day)
-                with patch('datia_rates.fetch_html', side_effect=[self.gold, outdated]):
-                    with self.assertRaisesRegex(PriceDataNotReady, 'too old/future-dated'):
+    def test_even_older_source_is_labelled_not_discarded(self):
+        outdated = self.silver.replace('10/11/2026', '06/11/2026')
+        with patch('datia_rates.fetch_html', side_effect=[self.gold, outdated]):
+            quote = fetch_datia_quote(date(2026, 11, 10))
+        self.assertEqual(quote['silver_published'], date(2026, 11, 6))
+        self.assertIn('06 Nov 2026', format_datia_message(quote))
+
+    def test_future_source_is_rejected(self):
+        for gold, silver in [('11/11/2026', '10/11/2026'),
+                             ('10/11/2026', '11/11/2026')]:
+            with self.subTest(gold=gold, silver=silver):
+                gp = self.gold.replace('10/11/2026', gold)
+                sp = self.silver.replace('10/11/2026', silver)
+                with patch('datia_rates.fetch_html', side_effect=[gp, sp]):
+                    with self.assertRaisesRegex(PriceDataNotReady, 'future-dated'):
                         fetch_datia_quote(date(2026, 11, 10))
 
     def test_bad_location_rejected(self):
