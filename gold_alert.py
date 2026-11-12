@@ -270,10 +270,10 @@ def main():
     try:
         quote = fetch_datia_quote(now.date())
     except PriceDataNotReady as exc:
-        print(f'DATIA SOURCE UNAVAILABLE/INVALID: {exc}; no sends or ledger claims; later runs may retry')
-        return
-    # Extra indicators are best-effort. A failed market provider cannot block
-    # the once-daily dated Gold/Silver WhatsApp alert.
+        print(f'DATIA SOURCE UNAVAILABLE/INVALID: {exc}; reporting availability gap')
+        quote = None
+    # Always send the daily brief, even if either data source is temporarily
+    # unavailable; never invent missing prices. Duplicate protection remains.
     markets = fetch_market_quotes(now)
     message = format_investor_brief(quote, markets, now)
     dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
