@@ -4,6 +4,7 @@ on:
     paths:
       - "gold_alert.py"
       - "datia_rates.py"
+      - "market_brief.py"
       - "delivery_ledger.py"
       - "tests/**"
       - ".github/workflows/validate-gold.yml"
