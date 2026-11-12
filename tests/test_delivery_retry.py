@@ -89,18 +89,24 @@ class RetryTests(unittest.TestCase):
                 msg.assert_called_once_with(quote, {}, late)
                 send.assert_not_called()
 
-    def test_source_unavailable_skips_without_ledger_claim(self):
+    def test_source_unavailable_still_sends_other_market_info(self):
         from datia_rates import PriceDataNotReady
-        now = datetime(2026, 11, 12, 20, 17, tzinfo=gold_alert.TZ)
+        now = datetime(2026, 11, 12, 21, 30, tzinfo=gold_alert.TZ)
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                                      'SEND_ENABLED': 'true'}, clear=True):
+                                      'SEND_ENABLED': 'true',
+                                      'DRY_RUN': 'false'}, clear=True):
             with patch.object(gold_alert, 'datetime') as dt, patch.object(
                     gold_alert, 'fetch_datia_quote',
                     side_effect=PriceDataNotReady('unavailable')), patch.object(
+                    gold_alert, 'fetch_market_quotes', return_value={'nifty': None}), patch.object(
+                    gold_alert, 'format_investor_brief',
+                    return_value='Datia source unavailable; market summary') as format_brief, patch.object(
                     gold_alert, 'send') as send:
                 dt.now.return_value = now
                 gold_alert.main()
-                send.assert_not_called()
+                format_brief.assert_called_once_with(None, {'nifty': None}, now)
+                send.assert_called_once_with(
+                    'Datia source unavailable; market summary', now=now)
 
     def test_live_send_then_retry_skips_both(self):
         env = {'GREEN_API_INSTANCE_ID': '123456789',
