@@ -89,6 +89,38 @@ class GoldTest(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True):
             self.assertEqual(len(destination_chats()), 3)
 
+    def test_replace_number_with_second_group(self):
+        env = {
+            'RECIPIENT_1': '919876543210',
+            'RECIPIENT_2': '120363098765432109@g.us',
+            'GROUP_CHAT_ID': '120363012345678901@g.us'
+        }
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(destination_chats(), [
+                '919876543210@c.us',
+                '120363098765432109@g.us',
+                '120363012345678901@g.us'
+            ])
+
+    def test_duplicate_group_in_two_slots_rejected(self):
+        env = {
+            'RECIPIENT_1': '919876543210',
+            'RECIPIENT_2': '120363012345678901@g.us',
+            'GROUP_CHAT_ID': '120363012345678901@g.us'
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, 'all be different'):
+                destination_chats()
+
+    def test_invalid_group_in_recipient_slot_rejected(self):
+        env = {
+            'RECIPIENT_1': '919876543210',
+            'RECIPIENT_2': 'bad@g.us',
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(ValueError):
+                destination_chats()
+
     def test_currency(self):
         self.assertEqual(rupees('1234567.5'),'₹12,34,568')
 
