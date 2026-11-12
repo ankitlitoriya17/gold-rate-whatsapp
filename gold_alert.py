@@ -215,8 +215,8 @@ def call_api(url, payload=None):
 
 
 def in_delivery_window(now):
-    """Scheduled Datia quotes send only 11:00–13:45 IST after source update."""
-    return (now.hour in (11, 12) or (now.hour == 13 and now.minute <= 45))
+    """External scheduled checks may send from 11:00 to 18:45 IST."""
+    return (11 <= now.hour <= 17 or (now.hour == 18 and now.minute <= 45))
 
 
 def send(message, now=None, ledger=None):
@@ -269,7 +269,7 @@ def main():
     now = datetime.now(TZ)
     external = os.environ.get('ENFORCE_DELIVERY_WINDOW', '').strip().lower() in ('1', 'true', 'yes')
     if (os.environ.get('GITHUB_EVENT_NAME') == 'schedule' or external) and not in_delivery_window(now):
-        print('Automated trigger outside 11:00–13:45 IST; no messages sent')
+        print('Automated trigger outside 11:00–18:45 IST; no messages sent')
         return
 
     # Do not claim the day's recipient ledger until BOTH Datia pages carry today's date.
