@@ -105,6 +105,16 @@ class InvestorBriefTest(unittest.TestCase):
         self.assertIn('→ Same', message)
         self.assertNotIn('Older published quotes', message)
 
+    def test_missing_datia_source_still_returns_daily_brief(self):
+        market = {key: None for key in ASSETS}
+        message = format_investor_brief(None, market, NOW)
+        self.assertIn('DATIA | DAILY INVESTOR BRIEF', message)
+        self.assertIn('24K Gold: unavailable', message)
+        self.assertIn('Silver 999: unavailable', message)
+        self.assertIn('All price sources are temporarily unavailable', message)
+        self.assertNotIn('₹1,42,680', message)
+        self.assertIn('Report' if False else '12 Nov 2026', message)
+
     def test_snapshot_does_not_claim_forecast_or_recommendation(self):
         msg = format_investor_brief(GOLD, {}, NOW)
         self.assertIn('No investment recommendation', msg)
