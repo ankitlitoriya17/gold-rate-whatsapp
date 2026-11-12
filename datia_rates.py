@@ -1,7 +1,7 @@
 """Read dated Datia gold/silver quotations from Aaj Tak's published price cards.
 
 This is a *city quotation*, NOT an IBJA bullion benchmark.
-The caller may send only when both independently fetched pages have today's date.
+A fresh Gold quotation is required. Silver can lag by up to 3 days if clearly labelled.
 """
 import html
 import re
@@ -89,10 +89,15 @@ def fetch_datia_quote(today=None):
     today = today or date.today()
     gold_date, gold = extract_price_card(fetch_html(GOLD_URL), 'Gold')
     silver_date, silver = extract_price_card(fetch_html(SILVER_URL), 'Silver')
-    if gold_date != today or silver_date != today:
+    if gold_date != today:
         raise PriceDataNotReady(
-            f'Datia local rates not yet updated for {today.isoformat()}: '
+            f'Datia Gold not yet updated for {today.isoformat()}: '
             f'gold={gold_date.isoformat()}, silver={silver_date.isoformat()}')
+    silver_age = (today - silver_date).days
+    if not 0 <= silver_age <= 3:
+        raise PriceDataNotReady(
+            f'Datia Silver source too old/future-dated: '
+            f'silver={silver_date.isoformat()}, today={today.isoformat()}')
     for needed, data in [('24 Karat', gold), ('22 Karat', gold), ('1 kg', silver)]:
         if needed not in data:
             raise PriceDataNotReady(f'Missing {needed} in Datia price card')
@@ -105,6 +110,7 @@ def fetch_datia_quote(today=None):
         raise PriceDataNotReady('Implausible Datia rates; do not send')
     return {
         'published': today,
+        'silver_published': silver_date,
         'gold24': gold24,
         'gold22': gold22,
         'silverkg': silverkg,
@@ -116,6 +122,8 @@ def fetch_datia_quote(today=None):
 
 def format_datia_message(quote):
     published = quote['published']
+    silver_published = quote.get('silver_published', published)
+    silver_is_older = silver_published < published
     def money(value):
         digits = str(int(value))
         if len(digits) <= 3:
@@ -132,17 +140,26 @@ def format_datia_message(quote):
         if value == 0:
             return '  ↔️ Same'
         return ('  🔺 +' if value > 0 else '  🔻 -') + money(abs(value))
-    return '\n'.join([
+    lines = [
         '🌟 *Datia Gold & Silver Rates*',
         f'📅 {published.strftime("%d %b %Y")} | Datia City Quote',
         '',
         f"🟡 *24K Gold:* {money(quote['gold24'])}/10g{movement(quote['delta24'])}",
         f"🟡 *22K Gold:* {money(quote['gold22'])}/10g{movement(quote['delta22'])}",
-        f"⚪ *Silver (999):* {money(quote['silverkg'])}/kg{movement(quote['delta_silver'])}",
+    ]
+    if silver_is_older:
+        lines += [
+            f"⚪ *Silver (999):* {money(quote['silverkg'])}/kg",
+            f"⚠️ Silver ka latest published quote {silver_published.strftime('%d %b %Y')} ka hai, aaj ka nahi.",
+        ]
+    else:
+        lines.append(f"⚪ *Silver (999):* {money(quote['silverkg'])}/kg{movement(quote['delta_silver'])}")
+    lines += [
         '',
-        '↕️ Change vs pichhla quoted rate',
+        '↕️ Gold change vs pichhla quoted rate' if silver_is_older else '↕️ Change vs pichhla quoted rate',
         'ℹ️ Indicative Datia rates; local jeweller prices alag ho sakte hain.',
         'GST & making charges extra. Source: Aaj Tak (Datia).',
         GOLD_URL,
         SILVER_URL,
-    ])
+    ]
+    return '\n'.join(lines)
