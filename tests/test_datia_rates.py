@@ -70,11 +70,23 @@ class DatiaSourceTest(unittest.TestCase):
             with self.assertRaisesRegex(PriceDataNotReady, 'not yet updated'):
                 fetch_datia_quote(date(2026, 11, 10))
 
-    def test_stale_silver_refuses_to_send(self):
-        outdated = self.silver.replace('10/11/2026', '09/11/2026')
+    def test_recent_silver_displays_original_date(self):
+        outdated = self.silver.replace('10/11/2026', '08/11/2026')
         with patch('datia_rates.fetch_html', side_effect=[self.gold, outdated]):
-            with self.assertRaisesRegex(PriceDataNotReady, 'not yet updated'):
-                fetch_datia_quote(date(2026, 11, 10))
+            quote = fetch_datia_quote(date(2026, 11, 10))
+        self.assertEqual(quote['silver_published'], date(2026, 11, 8))
+        message = format_datia_message(quote)
+        self.assertIn('Silver ka latest published quote 08 Nov 2026 ka hai, aaj ka nahi.', message)
+        self.assertIn('Gold change vs pichhla quoted rate', message)
+        self.assertNotIn('↔️ Same', message)
+
+    def test_very_old_silver_or_future_silver_refuses_to_send(self):
+        for day in ('06/11/2026', '11/11/2026'):
+            with self.subTest(day=day):
+                outdated = self.silver.replace('10/11/2026', day)
+                with patch('datia_rates.fetch_html', side_effect=[self.gold, outdated]):
+                    with self.assertRaisesRegex(PriceDataNotReady, 'too old/future-dated'):
+                        fetch_datia_quote(date(2026, 11, 10))
 
     def test_bad_location_rejected(self):
         with self.assertRaisesRegex(PriceDataNotReady, 'not Datia'):
