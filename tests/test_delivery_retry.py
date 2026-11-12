@@ -62,11 +62,13 @@ class RetryTests(unittest.TestCase):
                                       'DRY_RUN': 'false'}, clear=True):
             with patch.object(gold_alert, 'datetime') as dt, patch.object(
                     gold_alert, 'fetch_datia_quote', return_value=quote) as fetch, patch.object(
-                    gold_alert, 'format_datia_message', return_value='latest dated rates'), patch.object(
+                    gold_alert, 'fetch_market_quotes', return_value={}) as markets, patch.object(
+                    gold_alert, 'format_investor_brief', return_value='latest dated rates'), patch.object(
                     gold_alert, 'send') as send:
                 dt.now.return_value = late
                 gold_alert.main()
                 fetch.assert_called_once_with(late.date())
+                markets.assert_called_once_with(late)
                 send.assert_called_once_with('latest dated rates', now=late)
 
     def test_unrestricted_manual_dry_run_still_allowed(self):
@@ -78,12 +80,13 @@ class RetryTests(unittest.TestCase):
                                       'ENFORCE_DELIVERY_WINDOW': 'false'}, clear=True):
             with patch.object(gold_alert, 'datetime') as dt, patch.object(
                     gold_alert, 'fetch_datia_quote', return_value=quote) as fetch, patch.object(
-                    gold_alert, 'format_datia_message', return_value='preview only') as msg, patch.object(
+                    gold_alert, 'fetch_market_quotes', return_value={}), patch.object(
+                    gold_alert, 'format_investor_brief', return_value='preview only') as msg, patch.object(
                     gold_alert, 'send') as send:
                 dt.now.return_value = late
                 gold_alert.main()
                 fetch.assert_called_once_with(late.date())
-                msg.assert_called_once_with(quote)
+                msg.assert_called_once_with(quote, {}, late)
                 send.assert_not_called()
 
     def test_source_unavailable_skips_without_ledger_claim(self):
