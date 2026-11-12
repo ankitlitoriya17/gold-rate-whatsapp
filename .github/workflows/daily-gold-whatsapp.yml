@@ -8,7 +8,7 @@ on:
         required: true
         default: true
       enforce_window:
-        description: Require 11:00–13:45 IST for external scheduled dispatches
+        description: Legacy input (ignored); external dispatch sends latest dated rates at any time
         type: boolean
         required: false
         default: false
