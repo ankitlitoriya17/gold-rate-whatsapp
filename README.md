@@ -23,12 +23,16 @@ The free Developer tariff counts a group as one chat; two individuals plus one g
 1. Confirm GREEN-API dashboard says **Authorized**.
 2. Add the five Actions secrets.
 3. Open **Actions → Datia Gold WhatsApp (External Trigger) → Run workflow**, choose `dry_run=true`.
-4. Inspect logs: malformed/unavailable Datia pricing blocks sending; any missing market indicator is labelled unavailable instead of suppressing the Gold/Silver alert.
+4. Inspect logs: an unavailable Datia price or market indicator is marked `unavailable`. A daily report is still prepared and dispatched, even if some or all feeds fail, with no invented prices.
 5. After a successful preview and confirming both recipients opted in, add the **Actions variable** `SEND_ENABLED=true` under **Settings → Secrets and variables → Actions → Variables**.
 6. Run again with `dry_run=false` to attempt sending a test to *both* recipients; check actual delivery in WhatsApp.
 7. **Only cron-job.org automatically dispatches the workflow**. Set the primary to **21:30 IST (9:30 PM)** and optional backup to **22:30 IST**, removing earlier 8:30 PM jobs. GitHub internal `on.schedule` is disabled.
 
-**Datia Gold/Silver sources:** https://www.aajtak.in/commodity/gold-rate-in-datia-today and https://www.aajtak.in/commodity/silver-rate-in-datia-today . **Market snapshot source:** Yahoo Finance chart data (unofficial/no SLA), https://finance.yahoo.com/ . These are **indicative city quotations**, not verified individual-jeweller transaction prices nor IBJA benchmark quotes. GST and making charges are excluded. The old TrackLivePrice/IBJA parsing code remains for backward-compatible tests only and is **not used by live WhatsApp sends**. Messages use the **latest retrievable published rate for each metal**, clearly dated; stale sources do not block a report. An inaccessible, malformed or future-dated *Datia rate* source blocks sending (never invent rates). If Yahoo Finance is blocked, only the affected market metric reads `unavailable`; the Gold/Silver alert still sends. Index metrics are last published quotes, while USD/INR and Brent can be active at 9:30 PM and must not be described as market closes.
+**Datia Gold/Silver sources:** https://www.aajtak.in/commodity/gold-rate-in-datia-today and https://www.aajtak.in/commodity/silver-rate-in-datia-today . **Market snapshot source:** Yahoo Finance chart data (unofficial/no SLA), https://finance.yahoo.com/ . These are **indicative city quotations**, not verified individual-jeweller transaction prices nor IBJA benchmark quotes. GST and making charges are excluded. The old TrackLivePrice/IBJA parsing code remains for backward-compatible tests only and is **not used by live WhatsApp sends**. Messages use the **latest retrievable published rate for each metal**, clearly dated; stale sources do not block a report. An inaccessible, malformed or future-dated *Datia rate* source is shown as `unavailable` and does **not** block the daily summary; prices are never invented. If Yahoo Finance is blocked, affected market metrics read `unavailable` too. Index metrics are last published quotes, while USD/INR and Brent can be active at 9:30 PM and must not be described as market closes.
+
+## Market-data rights and reliability
+
+The Yahoo Finance chart endpoint is unofficial. The publisher states that its financial data **must not be redistributed** and may be delayed; before operating or scaling a WhatsApp investor broadcast, obtain an appropriately licensed feed or permission. The current integration is a technical preview, not a guarantee of redistribution rights, data quality, or long-term API access. Market provider failure is nonfatal, and every figure is explicitly dated/timestamped.
 
 ## Local tests
 
