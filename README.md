@@ -1,8 +1,8 @@
 [![Daily Datia Gold WhatsApp](https://github.com/ankitlitoriya17/gold-rate-whatsapp/actions/workflows/daily-gold-whatsapp.yml/badge.svg)](https://github.com/ankitlitoriya17/gold-rate-whatsapp/actions/workflows/daily-gold-whatsapp.yml)
 
-# Datia Gold Rates → WhatsApp
+# Datia Daily Investor Brief → WhatsApp
 
-Externally triggered evening Hinglish alerts using Aaj Tak's latest available **dated Datia local indicative quotations** for 24K gold (per 10g), 22K gold (per 10g), and Silver 999 (per kg). It sends one report per IST day per destination, even when either page has not published today's rates, and **always labels Gold and Silver publication dates separately**. It never calls an older price today's quote. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
+One compact **9:30 PM IST investor brief**, built from dated Datia-local indicative Gold (24K/22K) and Silver quotations, plus four best-effort market indicators: **Nifty 50, Sensex, USD/INR, and Brent crude futures**. The system records a maximum of one accepted send per IST report date and destination. Gold and Silver always show their real source publication dates; other assets show their quote timestamps. No forecast, buy signal or fabricated figure is included. Sends via the third-party **unofficial** GREEN-API WhatsApp integration to two opted-in individual recipients and optionally one opted-in WhatsApp group.
 
 **Safety:** WhatsApp sends do not happen unless the GitHub Actions variable `SEND_ENABLED` is explicitly set to `true` and a run is not a dry run. GREEN-API is not an approved Meta Cloud API and WhatsApp accounts may be restricted or disconnected. GitHub scheduled jobs can be delayed.
 
@@ -22,13 +22,13 @@ The free Developer tariff counts a group as one chat; two individuals plus one g
 
 1. Confirm GREEN-API dashboard says **Authorized**.
 2. Add the five Actions secrets.
-3. Open **Actions → Daily Datia Gold WhatsApp → Run workflow**, choose `dry_run=true`.
-4. Inspect logs: data source may fail or change schema. Any error blocks sending instead of inventing prices.
+3. Open **Actions → Datia Gold WhatsApp (External Trigger) → Run workflow**, choose `dry_run=true`.
+4. Inspect logs: malformed/unavailable Datia pricing blocks sending; any missing market indicator is labelled unavailable instead of suppressing the Gold/Silver alert.
 5. After a successful preview and confirming both recipients opted in, add the **Actions variable** `SEND_ENABLED=true` under **Settings → Secrets and variables → Actions → Variables**.
 6. Run again with `dry_run=false` to attempt sending a test to *both* recipients; check actual delivery in WhatsApp.
-7. **Only cron-job.org should automatically dispatch the workflow** at **20:17, 21:17 and 22:17 IST**; edit the external job there. GitHub internal `on.schedule` was removed after repeated late runs.
+7. **Only cron-job.org automatically dispatches the workflow**. Set the primary to **21:30 IST (9:30 PM)** and optional backup to **22:30 IST**, removing earlier 8:30 PM jobs. GitHub internal `on.schedule` is disabled.
 
-**Live WhatsApp rate source:** https://www.aajtak.in/commodity/gold-rate-in-datia-today and https://www.aajtak.in/commodity/silver-rate-in-datia-today . These are **indicative city quotations**, not verified individual-jeweller transaction prices nor IBJA benchmark quotes. GST and making charges are excluded. The old TrackLivePrice/IBJA parsing code remains for backward-compatible tests only and is **not used by live WhatsApp sends**. Messages use the **latest retrievable published rate for each metal**, clearly dated; stale sources do not block a report. An inaccessible, malformed or future-dated source does block sending (never invent rates).
+**Datia Gold/Silver sources:** https://www.aajtak.in/commodity/gold-rate-in-datia-today and https://www.aajtak.in/commodity/silver-rate-in-datia-today . **Market snapshot source:** Yahoo Finance chart data (unofficial/no SLA), https://finance.yahoo.com/ . These are **indicative city quotations**, not verified individual-jeweller transaction prices nor IBJA benchmark quotes. GST and making charges are excluded. The old TrackLivePrice/IBJA parsing code remains for backward-compatible tests only and is **not used by live WhatsApp sends**. Messages use the **latest retrievable published rate for each metal**, clearly dated; stale sources do not block a report. An inaccessible, malformed or future-dated *Datia rate* source blocks sending (never invent rates). If Yahoo Finance is blocked, only the affected market metric reads `unavailable`; the Gold/Silver alert still sends. Index metrics are last published quotes, while USD/INR and Brent can be active at 9:30 PM and must not be described as market closes.
 
 ## Local tests
 
