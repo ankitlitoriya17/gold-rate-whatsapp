@@ -12,11 +12,11 @@ Go to **Settings → Secrets and variables → Actions → Repository secrets**,
 - `GREEN_API_INSTANCE_ID` — GREEN-API idInstance
 - `GREEN_API_TOKEN` — GREEN-API apiTokenInstance (keep private)
 - `GREEN_API_BASE_URL` — exact HTTPS apiUrl displayed in GREEN-API instance dashboard (e.g. `https://7107.api.greenapi.com`)
-- `RECIPIENT_1` — first opted-in recipient's full international phone number (e.g. 919876543210)
-- `RECIPIENT_2` — second distinct opted-in recipient's full international phone number
-- `GROUP_CHAT_ID` (optional) — WhatsApp group ID ending in `@g.us` returned by GREEN-API `getChats` (not the group invite link). Group must include the sender and members should consent to the daily messages.
+- `RECIPIENT_1` — first destination: opted-in international phone number (e.g. 919876543210), or a GREEN-API group ID ending `@g.us`
+- `RECIPIENT_2` — second distinct destination: international phone number or a GREEN-API group ID ending `@g.us`
+- `GROUP_CHAT_ID` (optional) — third distinct destination, a group ID ending `@g.us` returned by GREEN-API `getChats` (not the group invite link). The sending WhatsApp account must be a member and group members should consent.
 
-The free Developer tariff counts a group as one chat; two individuals plus one group use all three permitted chats. You may need to clear/disconnect other active chats based on provider behavior. Never commit recipient numbers or an API token. GREEN-API free Developer tier is limited by number of chats and can change pricing or limits. Use a dedicated sender and ensure recipients consent to automated daily messages.
+The free Developer tariff counts a group as one chat; a setup of one individual plus two groups also uses all three permitted chats. You may need to clear/disconnect other active chats based on provider behavior. Never commit recipient numbers or an API token. GREEN-API free Developer tier is limited by number of chats and can change pricing or limits. Use a dedicated sender and ensure recipients consent to automated daily messages.
 
 ## Validate first
 
@@ -45,13 +45,24 @@ The previously configured ChatGPT reminder is separate and does not cause WhatsA
 
 **Security:** The sender's instance ID alone is not a token; never share API token. For any leaked token rotate it immediately in GREEN-API and replace the GitHub secret.
 
+## Replacing one phone number with another WhatsApp group
+
+The workflow supports **up to three distinct destinations**. If you currently have two people plus one group and want **one person plus two groups**, change only the intended numbered destination secret:
+
+1. Add the GREEN-API sender WhatsApp account to the new group.
+2. Open the GREEN-API instance **API / GetChats** method and run it using the existing authorized instance (official docs: https://green-api.com/en/docs/api/service/GetChats/). Find the entry with `"type": "group"` and the matching group name, and copy its `id` ending `@g.us`. Do not use an invite link.
+3. Open GitHub repository **Settings → Secrets and variables → Actions → Repository secrets**. Replace the value of `RECIPIENT_1` or `RECIPIENT_2`—whichever phone you intend to stop messaging—with the new group ID. Leave `GROUP_CHAT_ID` unchanged for the existing group.
+4. Ensure the two groups have different IDs. Run a `dry_run=true` preview (never sends). The next external cron trigger sends once per destination per IST day, subject to prior ledger claims. Do not manually trigger live sends until the destination configuration is verified.
+
+Do not commit group IDs, personal numbers, GREEN-API credentials or tokens to Git. GitHub Actions secrets cannot be viewed after saving, but can be replaced. The API response with the group list may include private chat names: do not post the complete response publicly.
+
 ## Optional WhatsApp group
 
 1. Add the sending WhatsApp account to the target group and get the group's consent for daily gold updates.
 2. In GREEN-API documentation, use the `getChats` method (from the authorized instance) to find the **group chat ID** ending in `@g.us`; do not use the group's invite link or name.
-3. Add the ID to the private GitHub Actions secret `GROUP_CHAT_ID`. No code changes or other secret changes required.
+3. Use the private GitHub Actions secret `GROUP_CHAT_ID` to add or replace the third group destination; or put a group ID into `RECIPIENT_1` / `RECIPIENT_2` to replace a phone recipient. No further code changes required.
 4. Run a `dry_run=true` preview, then (only if sending is already authorized and enabled) run a live test and confirm it appears in the group.
-5. To stop sending to the group, delete the `GROUP_CHAT_ID` secret; the two individual recipients continue working.
+5. To stop sending to the group, delete the `GROUP_CHAT_ID` secret; the other two configured destinations continue working.
 
 ## Automatic retries and duplicate protection
 
