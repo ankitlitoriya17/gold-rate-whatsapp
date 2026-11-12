@@ -52,32 +52,26 @@ class RetryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeliveryLedger('bad repo', 'fake')
 
-    def test_window(self):
+    def test_external_dispatch_sends_even_if_late(self):
         from zoneinfo import ZoneInfo
-        z = ZoneInfo('Asia/Kolkata')
-        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 9, 17, tzinfo=z)))
-        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 10, 21, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 11, 0, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 11, 20, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 13, 45, tzinfo=z)))
-        self.assertTrue(gold_alert.in_delivery_window(datetime(2026, 11, 10, 18, 45, tzinfo=z)))
-        self.assertFalse(gold_alert.in_delivery_window(datetime(2026, 11, 10, 18, 46, tzinfo=z)))
-
-    def test_external_delayed_run_exits_before_fetch(self):
-        from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 10, 18, 46, tzinfo=ZoneInfo('Asia/Kolkata'))
+        late = datetime(2026, 11, 12, 22, 45, tzinfo=ZoneInfo('Asia/Kolkata'))
+        quote = {'published': late.date()}
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                                       'ENFORCE_DELIVERY_WINDOW': 'true',
-                                      'SEND_ENABLED': 'true'}, clear=True):
+                                      'SEND_ENABLED': 'true',
+                                      'DRY_RUN': 'false'}, clear=True):
             with patch.object(gold_alert, 'datetime') as dt, patch.object(
-                    gold_alert, 'fetch_datia_quote') as fetch:
+                    gold_alert, 'fetch_datia_quote', return_value=quote) as fetch, patch.object(
+                    gold_alert, 'format_datia_message', return_value='latest dated rates'), patch.object(
+                    gold_alert, 'send') as send:
                 dt.now.return_value = late
                 gold_alert.main()
-                fetch.assert_not_called()
+                fetch.assert_called_once_with(late.date())
+                send.assert_called_once_with('latest dated rates', now=late)
 
     def test_unrestricted_manual_dry_run_still_allowed(self):
         from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 10, 19, 0, tzinfo=ZoneInfo('Asia/Kolkata'))
+        late = datetime(2026, 11, 10, 23, 0, tzinfo=ZoneInfo('Asia/Kolkata'))
         quote = {'published':late.date()}
         with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                                       'DRY_RUN': 'true',
@@ -92,14 +86,14 @@ class RetryTests(unittest.TestCase):
                 msg.assert_called_once_with(quote)
                 send.assert_not_called()
 
-    def test_stale_site_skip_without_ledger_claim(self):
+    def test_source_unavailable_skips_without_ledger_claim(self):
         from datia_rates import PriceDataNotReady
-        now = datetime(2026, 11, 10, 11, 15, tzinfo=gold_alert.TZ)
-        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'schedule',
+        now = datetime(2026, 11, 12, 20, 17, tzinfo=gold_alert.TZ)
+        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
                                       'SEND_ENABLED': 'true'}, clear=True):
             with patch.object(gold_alert, 'datetime') as dt, patch.object(
                     gold_alert, 'fetch_datia_quote',
-                    side_effect=PriceDataNotReady('not yet updated')), patch.object(
+                    side_effect=PriceDataNotReady('unavailable')), patch.object(
                     gold_alert, 'send') as send:
                 dt.now.return_value = now
                 gold_alert.main()
