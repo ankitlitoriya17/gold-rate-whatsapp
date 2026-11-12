@@ -188,15 +188,23 @@ def group_chat_id(value):
     return chat
 
 
+def destination_chat(value):
+    """A numbered destination may be either a phone number or WhatsApp group ID."""
+    raw = value.strip()
+    if raw.endswith('@g.us'):
+        return group_chat_id(raw)
+    return recipient(raw)
+
+
 def destination_chats():
-    """Two individual recipients plus an optional third group destination."""
-    chats = [recipient(os.environ['RECIPIENT_1']),
-             recipient(os.environ['RECIPIENT_2'])]
-    if chats[0] == chats[1]:
-        raise ValueError('Both individual recipients must be different')
+    """Two required slots plus optional third slot; each may be a unique group."""
+    chats = [destination_chat(os.environ['RECIPIENT_1']),
+             destination_chat(os.environ['RECIPIENT_2'])]
     group = (os.environ.get('GROUP_CHAT_ID') or '').strip()
     if group:
         chats.append(group_chat_id(group))
+    if len(chats) != len(set(chats)):
+        raise ValueError('WhatsApp destination slots must all be different')
     return chats
 
 
