@@ -158,10 +158,8 @@ def _pulse(data):
 
 
 def format_investor_brief(gold, market, now):
-    """Readable WhatsApp markdown; never label old quotations as today's quotes."""
+    """Readable WhatsApp markdown; unavailable sources are explicitly labelled."""
     report = now.strftime('%d %b %Y')
-    gold_date = gold['published']
-    silver_date = gold.get('silver_published', gold_date)
 
     def money(amount):
         digits = str(int(amount))
@@ -181,20 +179,33 @@ def format_investor_brief(gold, market, now):
             return ' → Same'
         return (' ↑ +' if amount > 0 else ' ↓ −') + money(abs(amount))
 
-    gold_today = gold_date == now.date()
-    silver_today = silver_date == now.date()
     lines = [
         '📊 *DATIA | DAILY INVESTOR BRIEF*',
         f'📅 {report} • {_clock(now)} IST',
         '',
         '🟡 *GOLD & SILVER · Datia*',
-        f"24K Gold  {money(gold['gold24'])}/10g{move(gold.get('delta24'), gold_today)}",
-        f"22K Gold  {money(gold['gold22'])}/10g{move(gold.get('delta22'), gold_today)}",
-        f"Silver 999  {money(gold['silverkg'])}/kg{move(gold.get('delta_silver'), silver_today)}",
-        f"🗓️ Gold {gold_date.strftime('%d %b')} · Silver {silver_date.strftime('%d %b')}",
     ]
-    if not gold_today or not silver_today:
-        lines.append('⚠️ Older published quotes shown above; not today’s rates.')
+    if gold is None:
+        lines += [
+            '24K Gold: unavailable',
+            '22K Gold: unavailable',
+            'Silver 999: unavailable',
+            '⚠️ Datia source unavailable; prices not verified.',
+        ]
+    else:
+        gold_date = gold['published']
+        silver_date = gold.get('silver_published', gold_date)
+        gold_today = gold_date == now.date()
+        silver_today = silver_date == now.date()
+        lines += [
+            f"24K Gold  {money(gold['gold24'])}/10g{move(gold.get('delta24'), gold_today)}",
+            f"22K Gold  {money(gold['gold22'])}/10g{move(gold.get('delta22'), gold_today)}",
+            f"Silver 999  {money(gold['silverkg'])}/kg{move(gold.get('delta_silver'), silver_today)}",
+            f"🗓️ Gold {gold_date.strftime('%d %b')} · Silver {silver_date.strftime('%d %b')}",
+        ]
+        if not gold_today or not silver_today:
+            lines.append('⚠️ Older published quotes shown above; not today’s rates.')
+
     lines.extend([
         '',
         '📈 *INDIAN EQUITIES · Last quote*',
@@ -208,6 +219,8 @@ def format_investor_brief(gold, market, now):
     pulse = _pulse(market)
     if pulse:
         lines.extend(['', f'🧭 *Market pulse:* {pulse}.'])
+    if gold is None and not any(market.values()):
+        lines += ['', '⚠️ All price sources are temporarily unavailable.']
     lines.extend([
         '',
         'ℹ️ Moves vs previous provider close. Quotes may be delayed; GST/making extra on jewellery.',
