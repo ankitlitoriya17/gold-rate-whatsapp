@@ -198,8 +198,8 @@ def format_investor_brief(gold, market, now):
     lines.extend([
         '',
         '📈 *INDIAN EQUITIES · Last quote*',
-        _line('Nifty 50', market.get('nifty')),
-        _line('Sensex', market.get('sensex')),
+        _line('Nifty 50', market.get('nifty'), show_time=True),
+        _line('Sensex', market.get('sensex'), show_time=True),
         '',
         '🌍 *GLOBAL INDICATORS · Latest quote*',
         _line('USD/INR', market.get('usdinr'), prefix='₹', suffix='/USD', show_time=True),
@@ -210,7 +210,7 @@ def format_investor_brief(gold, market, now):
         lines.extend(['', f'🧭 *Market pulse:* {pulse}.'])
     lines.extend([
         '',
-        'ℹ️ Indicative Datia quotes; GST/making extra. Other market quotes may be delayed.',
+        'ℹ️ Moves vs previous provider close. Quotes may be delayed; GST/making extra on jewellery.',
         'Sources: Aaj Tak (Datia) · Yahoo Finance (unofficial).',
         'No investment recommendation.',
     ])
