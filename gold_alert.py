@@ -198,9 +198,12 @@ def destination_chat(value):
 
 
 def destination_chats():
-    """Two required slots plus optional third slot; each may be a unique group."""
-    chats = [destination_chat(os.environ['RECIPIENT_1']),
-             destination_chat(os.environ['RECIPIENT_2'])]
+    """Only send to RECIPIENT_2 and optional GROUP_CHAT_ID.
+
+    RECIPIENT_1 is intentionally ignored (including when its secret remains set)
+    to avoid attempting the extra GREEN-API correspondent.
+    """
+    chats = [destination_chat(os.environ['RECIPIENT_2'])]
     group = (os.environ.get('GROUP_CHAT_ID') or '').strip()
     if group:
         chats.append(group_chat_id(group))
@@ -226,7 +229,7 @@ def call_api(url, payload=None):
 
 def send(message, now=None, ledger=None):
     needed = ('GREEN_API_INSTANCE_ID', 'GREEN_API_TOKEN',
-              'RECIPIENT_1', 'RECIPIENT_2')
+              'RECIPIENT_2')
     missing = [name for name in needed if not os.environ.get(name)]
     if missing:
         raise ValueError('Missing GitHub Actions secrets: ' + ', '.join(missing))
@@ -246,7 +249,7 @@ def send(message, now=None, ledger=None):
     alert_day = (now or datetime.now(TZ)).date().isoformat()
 
     for index, chat in enumerate(chats, start=1):
-        label = 'WhatsApp group' if chat.endswith('@g.us') else f'Recipient {index}'
+        label = 'GROUP_CHAT_ID' if chat == (os.environ.get('GROUP_CHAT_ID') or '').strip() else 'RECIPIENT_2'
         # Commit attempt BEFORE calling GREEN-API. Avoid resending on uncertain
         # timeout/crash: a claimed destination requires manual review.
         if not ledger.claim(alert_day, chat):
