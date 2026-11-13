@@ -1,0 +1,64 @@
+name: Temporary read-only recipient verification (NO SEND)
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-recipient-change-temp.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Validate recipient secrets and GREEN-API authorization (no messages)
+        env:
+          GREEN_API_INSTANCE_ID: ${{ secrets.GREEN_API_INSTANCE_ID }}
+          GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
+          GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
+          RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
+          RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}
+          GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os, json, hashlib
+          from urllib.request import urlopen, Request
+          from urllib.error import HTTPError, URLError
+          from gold_alert import destination_chat, group_chat_id, destination_chats, api_base
+          for slot in ('RECIPIENT_1', 'RECIPIENT_2', 'GROUP_CHAT_ID'):
+              value=os.environ.get(slot,'')
+              if not value.strip() and slot=='GROUP_CHAT_ID':
+                  print(slot + ': not configured')
+                  continue
+              try:
+                  chat=group_chat_id(value) if slot=='GROUP_CHAT_ID' else destination_chat(value)
+                  print(slot + ': VALID '+('group' if chat.endswith('@g.us') else 'phone'))
+              except (ValueError, TypeError):
+                  print(slot + ': INVALID (format)')
+          try:
+              chats=destination_chats()
+              print('DESTINATIONS: VALID '+str(len(chats))+' unique chats')
+          except (ValueError, KeyError, TypeError):
+              chats=[]
+              print('DESTINATIONS: INVALID')
+          try:
+              root=api_base()+'/waInstance'+os.environ['GREEN_API_INSTANCE_ID']+'/'
+              with urlopen(Request(root+'getStateInstance/'+os.environ['GREEN_API_TOKEN']), timeout=12) as response:
+                  state=json.load(response).get('stateInstance')
+              print('GREEN-API STATE: '+('authorized' if state=='authorized' else 'not authorized / unknown'))
+          except (HTTPError, URLError, OSError, ValueError, KeyError):
+              print('GREEN-API STATE: could not verify')
+          try:
+              with open('.delivery-state.json',encoding='utf-8') as f:
+                  ledger=json.load(f)
+              for i,chat in enumerate(chats,1):
+                  k=hashlib.sha256(chat.encode()).hexdigest()[:32]
+                  prev=[day for day,items in ledger.items() if k in items and items[k].get('status')=='queued']
+                  print('SLOT '+str(i)+' previous send accepted by API: '+('yes' if prev else 'no record'))
+          except (OSError, ValueError, TypeError):
+              print('PRIOR LEDGER: unavailable')
+          print('READ-ONLY CHECK: no WhatsApp send attempted')
+          PY
