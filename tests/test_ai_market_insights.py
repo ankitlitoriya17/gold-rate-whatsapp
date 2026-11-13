@@ -79,6 +79,19 @@ class GroqInsightTests(unittest.TestCase):
         self.assertNotIn('dummy-test-token', request.data.decode())
         self.assertNotIn('142680', request.data.decode())
 
+    def test_allows_known_market_identifiers_without_opening_price_hallucinations(self):
+        valid = {
+            'summary': 'Nifty 50 aaj higher tha, jabki USD/INR lower raha; market trends mixed ho sakte hain.',
+            'watch': 'Agle updates mein USD/INR aur Nifty 50 ki direction verify karte rahen.'
+        }
+        self.assertEqual(parse_ai_response({
+            'choices': [{'message': {'content': json.dumps(valid)}}]
+        }), valid)
+        invalid = dict(valid, summary='Nifty 50 ka target 26000 hoga')
+        self.assertIsNone(parse_ai_response({
+            'choices': [{'message': {'content': json.dumps(invalid)}}]
+        }))
+
     def test_reject_price_or_direct_buy_advice(self):
         for invalid in (
             dict(SAFE, summary='Buy now, this is a guaranteed profit!'),
