@@ -1,0 +1,70 @@
+name: Verify destinations read-only - NO SEND
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-destinations-temp.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Verify each slot and prior API acceptance without revealing identifiers
+        env:
+          RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
+          RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}
+          GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
+          GREEN_API_INSTANCE_ID: ${{ secrets.GREEN_API_INSTANCE_ID }}
+          GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
+          GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError, URLError
+          from gold_alert import destination_chat, group_chat_id, destination_chats, api_base
+
+          day_records = {}
+          try:
+              with open('.delivery-state.json',encoding='utf-8') as f:
+                  day_records=json.load(f)
+          except (OSError, ValueError):
+              print('Ledger not readable')
+
+          for slot in ('RECIPIENT_1', 'RECIPIENT_2', 'GROUP_CHAT_ID'):
+              value=os.environ.get(slot,'').strip()
+              if not value and slot=='GROUP_CHAT_ID':
+                  print(slot+': not configured')
+                  continue
+              try:
+                  chat=group_chat_id(value) if slot=='GROUP_CHAT_ID' else destination_chat(value)
+                  kind='group' if chat.endswith('@g.us') else 'phone'
+                  k=hashlib.sha256(chat.encode('utf-8')).hexdigest()[:32]
+                  accepted_days=[]
+                  for day,records in day_records.items():
+                      if isinstance(records,dict) and records.get(k,{}).get('status')=='queued':
+                          accepted_days.append(day)
+                  print(slot+': valid '+kind+'; prior API acceptance: '+('yes' if accepted_days else 'not recorded'))
+              except (ValueError, KeyError, TypeError):
+                  print(slot+': INVALID formatting')
+
+          try:
+              chats=destination_chats()
+              print('DESTINATIONS: '+str(len(chats))+' distinct valid')
+          except (ValueError, KeyError, TypeError):
+              print('DESTINATIONS: invalid / duplicate')
+
+          try:
+              root=api_base()+'/waInstance'+os.environ['GREEN_API_INSTANCE_ID']+'/'
+              with urlopen(Request(root+'getStateInstance/'+os.environ['GREEN_API_TOKEN']),timeout=12) as response:
+                  state=json.load(response).get('stateInstance')
+              print('GREEN-API AUTHORIZATION: '+('authorized' if state=='authorized' else 'not authorized'))
+          except (HTTPError,URLError,OSError,KeyError,ValueError):
+              print('GREEN-API AUTHORIZATION: not verified')
+          print('NO SEND: read-only diagnostic only')
+          PY
