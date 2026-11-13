@@ -157,8 +157,8 @@ def _pulse(data):
     return ' · '.join(notes) if notes else None
 
 
-def format_investor_brief(gold, market, now):
-    """Readable WhatsApp markdown; unavailable sources are explicitly labelled."""
+def format_investor_brief(gold, market, now, ai_insights=None):
+    """Readable WhatsApp markdown; optional validated AI commentary is additive."""
     report = now.strftime('%d %b %Y')
 
     def money(amount):
@@ -221,6 +221,13 @@ def format_investor_brief(gold, market, now):
         lines.extend(['', f'🧭 *Market pulse:* {pulse}.'])
     if gold is None and not any(market.values()):
         lines += ['', '⚠️ All price sources are temporarily unavailable.']
+    if ai_insights:
+        lines += [
+            '',
+            '🧠 *AI MARKET INSIGHTS · Observations only*',
+            ai_insights['summary'],
+            '🔎 Watch: ' + ai_insights['watch'],
+        ]
     lines.extend([
         '',
         'ℹ️ Moves vs previous provider close. Quotes may be delayed; GST/making extra on jewellery.',
