@@ -35,8 +35,8 @@ jobs:
               chats=destination_chats()
               print('Configuration: valid, '+str(len(chats))+' distinct destinations')
           except Exception as exc:
-              print('Configuration invalid: '+type(exc).__name__)
-              raise SystemExit(0)
+              print('Configuration invalid: '+type(exc).__name__+': '+str(exc))
+              chats=[]
 
           state={}
           try:
