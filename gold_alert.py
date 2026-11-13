@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from delivery_ledger import DeliveryLedger
 from datia_rates import fetch_datia_quote, format_datia_message, PriceDataNotReady
 from market_brief import fetch_market_quotes, format_investor_brief
+from ai_market_insights import generate_ai_insights
 
 TZ = ZoneInfo('Asia/Kolkata')
 SOURCE = 'https://trackliveprice.com'
@@ -283,7 +284,8 @@ def main():
     # Always send the daily brief, even if either data source is temporarily
     # unavailable; never invent missing prices. Duplicate protection remains.
     markets = fetch_market_quotes(now)
-    message = format_investor_brief(quote, markets, now)
+    insights = generate_ai_insights(quote, markets, now)
+    message = format_investor_brief(quote, markets, now, ai_insights=insights)
     dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
     enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
     if dry or not enabled:
