@@ -35,6 +35,33 @@ jobs:
                 'usdinr': {'change_pct': -0.2},
                 'brent': {'change_pct': 0.3},
               }
+              import json, re
+              import ai_market_insights
+              original=ai_market_insights.parse_ai_response
+              def diagnostic(payload):
+                  choices=payload.get('choices') or []
+                  choice=choices[0] if choices else {}
+                  raw=(choice.get('message') or {}).get('content')
+                  print('GROQ FINISH REASON:', str(choice.get('finish_reason','unknown'))[:35])
+                  print('GROQ RESPONSE TYPE:', type(raw).__name__)
+                  print('GROQ RESPONSE LENGTH:', len(raw) if isinstance(raw,str) else 0)
+                  try:
+                      decoded=json.loads(raw)
+                      print('GROQ KEYS:',','.join(sorted(decoded)) if isinstance(decoded,dict) else 'not-object')
+                      if isinstance(decoded,dict):
+                          for fld in ('summary','watch'):
+                              v=decoded.get(fld)
+                              if not isinstance(v,str):
+                                  print('GROQ FIELD',fld,'not-string')
+                              else:
+                                  print('GROQ FIELD',fld,'words',len(v.split()),'chars',len(v),
+                                        'digits',bool(re.search(r'[0-9]',v)),
+                                        'banned',bool(ai_market_insights.BANNED.search(v)),
+                                        'validator-accepted',bool(ai_market_insights._safe_sentence(v)))
+                  except (TypeError,ValueError):
+                      print('GROQ JSON: invalid')
+                  return original(payload)
+              ai_market_insights.parse_ai_response=diagnostic
               reply=generate_ai_insights(None,facts,when)
               print('GROQ AI TEST: '+('SUCCESS; 2 validated insights' if reply else 'NO VALID OUTPUT; fallback remains active'))
           print('NO WHATSAPP SEND: true')
