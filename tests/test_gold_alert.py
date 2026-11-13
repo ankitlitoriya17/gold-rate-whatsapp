@@ -84,10 +84,12 @@ class GoldTest(unittest.TestCase):
         env = {'RECIPIENT_1': '919876543210',
                'RECIPIENT_2': '919999999999'}
         with patch.dict(os.environ, env, clear=True):
-            self.assertEqual(len(destination_chats()), 2)
+            self.assertEqual(destination_chats(), ['919999999999@c.us'])
         env['GROUP_CHAT_ID'] = '120363012345678901@g.us'
         with patch.dict(os.environ, env, clear=True):
-            self.assertEqual(len(destination_chats()), 3)
+            self.assertEqual(destination_chats(), [
+                '919999999999@c.us', '120363012345678901@g.us'
+            ])
 
     def test_replace_number_with_second_group(self):
         env = {
@@ -97,10 +99,22 @@ class GoldTest(unittest.TestCase):
         }
         with patch.dict(os.environ, env, clear=True):
             self.assertEqual(destination_chats(), [
-                '919876543210@c.us',
                 '120363098765432109@g.us',
                 '120363012345678901@g.us'
             ])
+
+    def test_recipient_1_is_ignored_even_if_present_or_invalid(self):
+        env = {
+            'RECIPIENT_1': 'unexpected-bad-value',
+            'RECIPIENT_2': '919999999999',
+            'GROUP_CHAT_ID': '120363012345678901@g.us'
+        }
+        expected = ['919999999999@c.us', '120363012345678901@g.us']
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(destination_chats(), expected)
+        del env['RECIPIENT_1']
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(destination_chats(), expected)
 
     def test_duplicate_group_in_two_slots_rejected(self):
         env = {
