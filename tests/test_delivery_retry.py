@@ -112,6 +112,7 @@ class RetryTests(unittest.TestCase):
         env = {'GREEN_API_INSTANCE_ID': '123456789',
                'GREEN_API_TOKEN': 'ABCDEF01234567890123',
                'RECIPIENT_1': '919876543210', 'RECIPIENT_2': '919999999999',
+               'GROUP_CHAT_ID': '120363012345678901@g.us',
                'GREEN_API_BASE_URL': 'https://7107.api.greenapi.com'}
         sent = []
         def fake_api(url, payload=None):
@@ -126,12 +127,14 @@ class RetryTests(unittest.TestCase):
             with redirect_stdout(StringIO()):
                 gold_alert.send('Daily message', now=now, ledger=self.ledger)
                 gold_alert.send('Daily message', now=now, ledger=self.ledger)
-        self.assertEqual(sent, list(self.chats))
+        self.assertEqual(sent, [self.chats[1], '120363012345678901@g.us'])
+        self.assertNotIn(self.chats[0], sent)  # RECIPIENT_1 remains ignored
 
     def test_partial_failure_does_not_resend_first_or_ambiguous_second(self):
         env = {'GREEN_API_INSTANCE_ID': '123456789',
                'GREEN_API_TOKEN': 'ABCDEF01234567890123',
                'RECIPIENT_1': '919876543210', 'RECIPIENT_2': '919999999999',
+               'GROUP_CHAT_ID': '120363012345678901@g.us',
                'GREEN_API_BASE_URL': 'https://7107.api.greenapi.com'}
         attempted = []
         def fake_api(url, payload=None):
@@ -148,9 +151,11 @@ class RetryTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'Ambiguous network failure'):
                     gold_alert.send('Daily message', now=now, ledger=self.ledger)
                 gold_alert.send('Daily message', now=now, ledger=self.ledger)
-        self.assertEqual(attempted, list(self.chats))
-        self.assertEqual(self.ledger.store[self.day][self.ledger.key(self.chats[0])]['status'], 'queued')
-        self.assertEqual(self.ledger.store[self.day][self.ledger.key(self.chats[1])]['status'], 'review')
+        group = '120363012345678901@g.us'
+        self.assertEqual(attempted, [self.chats[1], group])
+        self.assertNotIn(self.chats[0], attempted)
+        self.assertEqual(self.ledger.store[self.day][self.ledger.key(self.chats[1])]['status'], 'queued')
+        self.assertEqual(self.ledger.store[self.day][self.ledger.key(group)]['status'], 'review')
 
 
 if __name__ == '__main__':
