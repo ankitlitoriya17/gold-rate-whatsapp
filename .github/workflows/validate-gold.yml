@@ -5,6 +5,7 @@ on:
       - "gold_alert.py"
       - "datia_rates.py"
       - "market_brief.py"
+      - "ai_market_insights.py"
       - "delivery_ledger.py"
       - "tests/**"
       - ".github/workflows/validate-gold.yml"
