@@ -29,7 +29,18 @@ jobs:
           import os
           from urllib.request import Request, urlopen
           from urllib.error import HTTPError, URLError
-          from gold_alert import destination_chats, api_base
+          from gold_alert import destination_chats, destination_chat, group_chat_id, api_base
+
+          for slot in ('RECIPIENT_1','RECIPIENT_2','GROUP_CHAT_ID'):
+              value=os.environ.get(slot,'')
+              try:
+                  if not value.strip() and slot=='GROUP_CHAT_ID':
+                      print(slot+': optional, not configured')
+                  else:
+                      verified=group_chat_id(value) if slot=='GROUP_CHAT_ID' else destination_chat(value)
+                      print(slot+': valid '+('group' if verified.endswith('@g.us') else 'phone'))
+              except ValueError:
+                  print(slot+': INVALID VALUE (check phone format or group ID)')
 
           try:
               chats=destination_chats()
