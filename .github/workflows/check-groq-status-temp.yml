@@ -1,4 +1,5 @@
 name: Read-only Groq AI integration check (NO WHATSAPP SEND)
+# Recheck Groq after allowing known ticker labels
 on:
   push:
     paths:
