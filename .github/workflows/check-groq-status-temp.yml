@@ -1,0 +1,41 @@
+name: Read-only Groq AI integration check (NO WHATSAPP SEND)
+on:
+  push:
+    paths:
+      - '.github/workflows/check-groq-status-temp.yml'
+permissions:
+  contents: read
+jobs:
+  test-ai:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Verify Groq key and optional tiny synthetic model response
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          from ai_market_insights import generate_ai_insights
+
+          if not os.environ.get('GROQ_API_KEY','').strip():
+              print('GROQ AI CONFIG: KEY MISSING')
+          else:
+              print('GROQ AI CONFIG: KEY PRESENT')
+              when=datetime(2026,11,13,22,0,tzinfo=ZoneInfo('Asia/Kolkata'))
+              facts={
+                'nifty': {'change_pct': 1},
+                'sensex': {'change_pct': 1},
+                'usdinr': {'change_pct': -0.2},
+                'brent': {'change_pct': 0.3},
+              }
+              reply=generate_ai_insights(None,facts,when)
+              print('GROQ AI TEST: '+('SUCCESS; 2 validated insights' if reply else 'NO VALID OUTPUT; fallback remains active'))
+          print('NO WHATSAPP SEND: true')
+          PY
