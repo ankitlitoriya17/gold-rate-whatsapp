@@ -51,6 +51,17 @@ jobs:
                           accepted_days.append(day)
                   print(slot+': valid '+kind+'; prior API acceptance: '+('yes' if accepted_days else 'not recorded'))
               except (ValueError, KeyError, TypeError):
+                  if slot=='RECIPIENT_1':
+                      if value.lower().endswith('@c.us'):
+                          print('RECIPIENT_1 ISSUE: phone suffix @c.us must be removed')
+                      elif value.lower().endswith('@g.us'):
+                          print('RECIPIENT_1 ISSUE: group ID not accepted by current validator')
+                      elif value.startswith('https://') or value.startswith('http://'):
+                          print('RECIPIENT_1 ISSUE: group invite/link not a chat ID')
+                      elif any(c.isalpha() for c in value):
+                          print('RECIPIENT_1 ISSUE: contains letters or other suffix')
+                      else:
+                          print('RECIPIENT_1 ISSUE: invalid phone length or characters')
                   print(slot+': INVALID formatting')
 
           try:
