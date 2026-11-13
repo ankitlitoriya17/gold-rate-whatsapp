@@ -86,7 +86,7 @@ class RetryTests(unittest.TestCase):
                 dt.now.return_value = late
                 gold_alert.main()
                 fetch.assert_called_once_with(late.date())
-                msg.assert_called_once_with(quote, {}, late)
+                msg.assert_called_once_with(quote, {}, late, ai_insights=None)
                 send.assert_not_called()
 
     def test_source_unavailable_still_sends_other_market_info(self):
@@ -104,7 +104,7 @@ class RetryTests(unittest.TestCase):
                     gold_alert, 'send') as send:
                 dt.now.return_value = now
                 gold_alert.main()
-                format_brief.assert_called_once_with(None, {'nifty': None}, now)
+                format_brief.assert_called_once_with(None, {'nifty': None}, now, ai_insights=None)
                 send.assert_called_once_with(
                     'Datia source unavailable; market summary', now=now)
 
