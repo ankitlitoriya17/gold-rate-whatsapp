@@ -21,6 +21,7 @@ jobs:
         env:
           GREEN_API_INSTANCE_ID: ${{ secrets.GREEN_API_INSTANCE_ID }}
           GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
+          LEDGER_KEY: ${{ secrets.LEDGER_KEY }}
           GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
           OWNER_RECIPIENT: ${{ secrets.OWNER_RECIPIENT }}
           RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}

@@ -159,3 +159,34 @@ class RetryTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class KeyedHashTests(unittest.TestCase):
+    def test_hmac_key_differs_from_plain_hash_and_needs_secret(self):
+        from delivery_ledger import legacy_key
+        with patch.dict(os.environ, {'GREEN_API_TOKEN': 'ABCDEF01234567890123'}, clear=True):
+            led = DeliveryLedger('o/r', 'tok')
+            self.assertNotEqual(led.key('919876543210@c.us'), legacy_key('919876543210@c.us'))
+        with patch.dict(os.environ, {'LEDGER_KEY': 'another-secret-key'}, clear=True):
+            other = DeliveryLedger('o/r', 'tok')
+        self.assertNotEqual(led.key('919876543210@c.us'), other.key('919876543210@c.us'))
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValueError):
+                DeliveryLedger('o/r', 'tok')
+
+    def test_rekey_moves_known_and_drops_unknown(self):
+        from delivery_ledger import legacy_key, rekey
+        with patch.dict(os.environ, {'GREEN_API_TOKEN': 'ABCDEF01234567890123'}, clear=True):
+            led = DeliveryLedger('o/r', 'tok')
+        saved = {}
+        state = {'2026-11-19': {legacy_key('919999999999@c.us'): {'status': 'queued'},
+                                legacy_key('919999999999@c.us#weekly'): {'status': 'queued'},
+                                'ffff' * 8: {'status': 'queued'}},
+                 '2026-11-07': {'eeee' * 8: {'status': 'queued'}}}
+        with patch.object(DeliveryLedger, 'read', return_value=(state, 'sha')), \
+                patch.object(DeliveryLedger, 'write', side_effect=lambda s, sha, message: saved.update(s)):
+            moved, dropped = rekey(led, ['919999999999@c.us'])
+        self.assertEqual((moved, dropped), (2, 2))
+        self.assertEqual(set(saved), {'2026-11-19'})
+        self.assertIn(led.key('919999999999@c.us'), saved['2026-11-19'])
+        self.assertNotIn(legacy_key('919999999999@c.us'), json.dumps(saved))

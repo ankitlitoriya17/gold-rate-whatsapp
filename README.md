@@ -52,6 +52,7 @@ Backup rows (other city) are stored but excluded from trend maths.
 | `RECIPIENT_2` | secret | Daily destination (phone with country code, or group ID `…@g.us`) |
 | `GROUP_CHAT_ID` | secret, optional | Group ID from GREEN-API `getChats` (not the invite link) |
 | `RECIPIENT_1` | secret | Not used |
+| `LEDGER_KEY` | secret, optional | Key for hashing destinations in the public ledger. Default: `GREEN_API_TOKEN` |
 | `OWNER_RECIPIENT` | secret, optional | Personal number for alerts if it should differ from `RECIPIENT_2` |
 | `GROQ_API_KEY` | secret, optional | AI lines (`openai/gpt-oss-120b`, falls back to `gpt-oss-20b`) |
 | `SEND_ENABLED` | variable | Must be `true` for any WhatsApp send |
@@ -74,7 +75,7 @@ The cron-job.org setup is in [CRON_JOB_ORG_SETUP.md](CRON_JOB_ORG_SETUP.md).
 
 ## Duplicate protection
 
-Before each GREEN-API call, the script commits an `attempting` claim to `.delivery-state.json`, keyed by a hashed destination and the slot (`daily` or `weekly`). After `idMessage`, the claim becomes `queued`. Later triggers on the same day skip claimed destinations. An uncertain send stays in `review` and is never auto-resent. Queue acceptance is not proof of delivery.
+Before each GREEN-API call, the script commits an `attempting` claim to `.delivery-state.json`, keyed by an HMAC of the destination (so numbers cannot be brute-forced from this public repo) and the slot (`daily` or `weekly`). After `idMessage`, the claim becomes `queued`. Later triggers on the same day skip claimed destinations. An uncertain send stays in `review` and is never auto-resent. Queue acceptance is not proof of delivery.
 
 ## Development
 
