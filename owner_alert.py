@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Private alerts to the owner (RECIPIENT_1) when something needs attention.
+"""Private alerts to the owner (RECIPIENT_2, a personal number) when something needs attention.
 
 Used by gold_alert.py (data/delivery problems), by the workflow's failure step
 and by the nightly watchdog. Never raises: an alert failure must not break the
@@ -7,7 +7,7 @@ group delivery. In dry runs alerts are only printed.
 
 CLI: python owner_alert.py "message"          send a one-off alert
      python owner_alert.py --watchdog         alert if today's send is missing
-     python owner_alert.py --test             test alert + chart to RECIPIENT_1 only
+     python owner_alert.py --test             test alert + chart to the owner only
 """
 import os
 import sys
@@ -34,7 +34,7 @@ def send_owner_alert(text, now=None):
         return False
     try:
         import gold_alert  # local import: avoid circular import at module load
-        owner = gold_alert.recipient(os.environ['RECIPIENT_1'])
+        owner = owner_chat()
         instance = os.environ['GREEN_API_INSTANCE_ID'].strip()
         token = os.environ['GREEN_API_TOKEN'].strip()
         url = f'{gold_alert.api_base()}/waInstance{instance}/sendMessage/{token}'
@@ -45,6 +45,17 @@ def send_owner_alert(text, now=None):
     except Exception as exc:
         print(f'OWNER ALERT: failed ({type(exc).__name__}: {exc})')
         return False
+
+
+def owner_chat():
+    """Owner's personal chat. OWNER_RECIPIENT if set, else RECIPIENT_2.
+
+    Must be a phone number: gold_alert.recipient() rejects group IDs, so a private
+    alert can never land in a group.
+    """
+    import gold_alert
+    value = (os.environ.get('OWNER_RECIPIENT') or os.environ.get('RECIPIENT_2') or '').strip()
+    return gold_alert.recipient(value)
 
 
 def _run_url():
@@ -100,7 +111,7 @@ def send_test(now=None):
     image = weekly_chart.render_chart(history, quote['published'])
     if not caption or not image:
         raise RuntimeError('chart could not be built')
-    owner = gold_alert.recipient(os.environ['RECIPIENT_1'])
+    owner = owner_chat()
     instance = os.environ['GREEN_API_INSTANCE_ID'].strip()
     token = os.environ['GREEN_API_TOKEN'].strip()
     media = weekly_chart.media_base(gold_alert.api_base())

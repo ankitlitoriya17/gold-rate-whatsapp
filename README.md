@@ -21,7 +21,7 @@ A short Hinglish **10:00 PM IST daily gold update** for a WhatsApp group, plus a
 
 **Sunday** (`weekly_chart.py`): a 30-day 24K gold and silver chart (PNG) with a week summary caption.
 
-**Owner alerts** (`owner_alert.py`) go privately to `RECIPIENT_1`, never to the group.
+**Owner alerts** (`owner_alert.py`) go privately to the owner's number (`RECIPIENT_2`, or `OWNER_RECIPIENT` if set). Group IDs are rejected for alerts, so they can never land in a group.
 
 ## Data flow
 
@@ -33,9 +33,9 @@ cron-job.org 22:00 IST ─▶ workflow_dispatch ─▶ gold_alert.py
   4. Yahoo Finance markets, Groq AI (optional), tip of the day
   5. Send to RECIPIENT_2 + GROUP_CHAT_ID (ledger: once per day per destination)
   6. Sunday: chart + caption (separate "weekly" ledger slot)
-  7. Any problem (fallback used, gold missing, history save failed…) ⇒ one alert to RECIPIENT_1
-watchdog.yml 23:37 IST ─▶ no confirmed send today? ⇒ alert to RECIPIENT_1
-workflow step failed ⇒ alert to RECIPIENT_1
+  7. Any problem (fallback used, gold missing, history save failed…) ⇒ one alert to the owner
+watchdog.yml 23:37 IST ─▶ no confirmed send today? ⇒ alert to the owner
+workflow step failed ⇒ alert to the owner
 ```
 
 Backup rows (other city) are stored but excluded from trend maths.
@@ -51,7 +51,8 @@ Backup rows (other city) are stored but excluded from trend maths.
 | `GREEN_API_MEDIA_URL` | secret, optional | mediaUrl for the Sunday image. Default: apiUrl with `api` → `media` |
 | `RECIPIENT_2` | secret | Daily destination (phone with country code, or group ID `…@g.us`) |
 | `GROUP_CHAT_ID` | secret, optional | Group ID from GREEN-API `getChats` (not the invite link) |
-| `RECIPIENT_1` | secret | **Owner alerts only**. Never receives the daily message |
+| `RECIPIENT_1` | secret | Not used |
+| `OWNER_RECIPIENT` | secret, optional | Personal number for alerts if it should differ from `RECIPIENT_2` |
 | `GROQ_API_KEY` | secret, optional | AI lines (`openai/gpt-oss-120b`, falls back to `gpt-oss-20b`) |
 | `SEND_ENABLED` | variable | Must be `true` for any WhatsApp send |
 
@@ -59,7 +60,7 @@ The cron-job.org setup is in [CRON_JOB_ORG_SETUP.md](CRON_JOB_ORG_SETUP.md).
 
 ## Runbook — "aaj message nahi aaya / galat aaya"
 
-1. **Check your WhatsApp (RECIPIENT_1).** The bot alerts you with the reason and a link to the run.
+1. **Check your WhatsApp (owner number).** The bot alerts you with the reason and a link to the run.
 2. **Actions → latest "Datia Gold WhatsApp" run → "Build gold report" step.** Look for these log lines:
    - `DATIA FETCH attempt N failed …: HTTP 403 / TimeoutError / bot block`: the source blocked or timed out. One bad day is normal. If it repeats daily, Aaj Tak is blocking GitHub; consider a different source.
    - `CROSS-CHECK: … fark`: Datia and Bhopal differ by more than 4%. Open both sites and compare.

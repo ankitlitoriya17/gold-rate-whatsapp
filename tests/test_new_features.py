@@ -197,8 +197,13 @@ class OwnerAlertTest(unittest.TestCase):
             self.assertFalse(owner_alert.send_owner_alert('test', NOW))
         self.assertIn('not sent', out.getvalue())
 
-    def test_sends_to_recipient_1(self):
-        env = {'SEND_ENABLED': 'true', 'RECIPIENT_1': '919876543210', 'GREEN_API_INSTANCE_ID': '123',
+    def test_group_id_never_used_for_alerts(self):
+        with patch.dict(os.environ, {'RECIPIENT_2': '120363012345678901@g.us'}, clear=True):
+            with self.assertRaises(ValueError):
+                owner_alert.owner_chat()
+
+    def test_sends_to_owner_number(self):
+        env = {'SEND_ENABLED': 'true', 'RECIPIENT_1': '120363012345678901@g.us', 'RECIPIENT_2': '919876543210', 'GREEN_API_INSTANCE_ID': '123',
                'GREEN_API_TOKEN': 'ABCDEF01234567890123', 'GREEN_API_BASE_URL': 'https://7107.api.greenapi.com'}
         with patch.dict(os.environ, env, clear=True), patch('gold_alert.call_api',
                                                              return_value={'idMessage': 'A'}) as api, \

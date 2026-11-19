@@ -1,7 +1,7 @@
 name: Daily send watchdog
 # Runs after the 22:00 IST trigger window. If today's message has no confirmed
 # receipt for every destination (trigger never fired, token expired, send failed),
-# alerts the owner (RECIPIENT_1). GitHub schedules can run late; that is fine here.
+# alerts the owner (RECIPIENT_2). GitHub schedules can run late; that is fine here.
 on:
   schedule:
     - cron: '7 18 * * *'   # 23:37 IST
@@ -22,7 +22,7 @@ jobs:
           GREEN_API_INSTANCE_ID: ${{ secrets.GREEN_API_INSTANCE_ID }}
           GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
           GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
-          RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
+          OWNER_RECIPIENT: ${{ secrets.OWNER_RECIPIENT }}
           RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}
           GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

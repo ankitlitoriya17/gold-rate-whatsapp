@@ -228,7 +228,7 @@ def destination_chat(value):
 def destination_chats():
     """Only send to RECIPIENT_2 and optional GROUP_CHAT_ID.
 
-    RECIPIENT_1 never receives the daily message; it only gets owner alerts
+    RECIPIENT_1 is not used (it holds a group ID); owner alerts go to RECIPIENT_2
     to avoid attempting the extra GREEN-API correspondent.
     """
     chats = [destination_chat(os.environ['RECIPIENT_2'])]

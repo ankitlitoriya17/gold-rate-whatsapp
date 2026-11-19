@@ -27,7 +27,7 @@ jobs:
       GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
       GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
       GREEN_API_MEDIA_URL: ${{ secrets.GREEN_API_MEDIA_URL }}
-      RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
+      OWNER_RECIPIENT: ${{ secrets.OWNER_RECIPIENT }}
       RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}
       GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
