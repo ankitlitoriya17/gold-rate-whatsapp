@@ -43,7 +43,7 @@ def send_owner_alert(text, now=None):
         print('OWNER ALERT: sent' if ok else 'OWNER ALERT: not confirmed by API')
         return ok
     except Exception as exc:
-        print(f'OWNER ALERT: failed ({type(exc).__name__})')
+        print(f'OWNER ALERT: failed ({type(exc).__name__}: {exc})')
         return False
 
 

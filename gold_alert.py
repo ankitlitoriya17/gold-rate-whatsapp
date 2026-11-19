@@ -181,10 +181,30 @@ def api_base():
     return base
 
 
+def _shape(value):
+    """Describe a bad phone value without revealing it."""
+    raw = value.strip()
+    digits = re.sub(r'\D', '', raw)
+    other = sorted({c for c in raw if not c.isdigit()} - set('+ -'))
+    hints = [f'{len(digits)} digits']
+    if not raw:
+        hints = ['empty']
+    if raw.endswith('@c.us') or raw.endswith('@g.us'):
+        hints.append('has @ suffix')
+    elif other:
+        hints.append('other characters present')
+    if digits.startswith('0'):
+        hints.append('starts with 0')
+    if len(digits) == 10:
+        hints.append('looks like it is missing country code 91')
+    return ', '.join(hints)
+
+
 def recipient(value):
     digits = value.strip().replace('+', '').replace(' ', '').replace('-', '')
     if not re.fullmatch(r'[1-9][0-9]{9,14}', digits):
-        raise ValueError('Recipient must include country code and 10-15 digits')
+        raise ValueError('Recipient must include country code and 10-15 digits '
+                         f'({_shape(value)})')
     return digits + '@c.us'
 
 
