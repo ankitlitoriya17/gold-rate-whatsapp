@@ -91,8 +91,13 @@ def rate_block(quote, now):
     lines = [
         _rate_line('🟡 *24K:*', quote['gold24'], '/10g', quote.get('delta24'), fresh),
         _rate_line('🟡 *22K:*', quote['gold22'], '/10g', quote.get('delta22'), fresh),
-        f"      1 gram: 24K {money(quote['gold24'] / 10)} · 22K {money(quote['gold22'] / 10)}",
     ]
+    if quote.get('gold18') is not None:
+        lines.append(_rate_line('🟡 *18K:*', quote['gold18'], '/10g', quote.get('delta18'), fresh))
+    per_gram = f"      1 gram: 24K {money(quote['gold24'] / 10)} · 22K {money(quote['gold22'] / 10)}"
+    if quote.get('gold18') is not None:
+        per_gram += f" · 18K {money(quote['gold18'] / 10)}"
+    lines.append(per_gram)
     if quote.get('silverkg') is not None:
         silver_fresh = quote.get('silver_published') == now.date()
         lines.append(_rate_line('⚪ *Chandi:*', quote['silverkg'], '/kg',
@@ -133,11 +138,32 @@ def jewellery_block(quote):
             f'{money(low)} – {money(high)} (making 8–15% + 3% GST maan kar)']
 
 
-def _market_item(label, quote, prefix='', places=0):
+def grams(value):
+    return format(Decimal(value).quantize(Decimal('0.01'), ROUND_HALF_UP), 'f') + 'g'
+
+
+def investment_block(info):
+    if not info:
+        return []
+    line = f"₹1 lakh = {grams(info['grams_per_lakh'])} 24K sona"
+    if 'grams_per_lakh_7d' in info:
+        line += f" (7 din pehle {grams(info['grams_per_lakh_7d'])})"
+    lines = ['💰 *Investment nazar*', line]
+    if 'ratio' in info:
+        ratio = f"Gold:Silver ratio {info['ratio'].quantize(Decimal('0.1'), ROUND_HALF_UP)}"
+        if 'ratio_7d' in info:
+            ratio += f" (7 din pehle {info['ratio_7d'].quantize(Decimal('0.1'), ROUND_HALF_UP)})"
+        lines.append(ratio + ' — 1g sone mein itne gram chandi')
+    if 'nifty_pct_7d' in info:
+        lines.append(f"7 din: Gold {pct(info['gold_pct_7d'], 1)} · Nifty {pct(info['nifty_pct_7d'], 1)}")
+    return lines
+
+
+def _market_item(label, quote, prefix='', places=0, suffix=''):
     if not quote:
         return None
     value = Decimal(quote['value']).quantize(Decimal(1).scaleb(-places), ROUND_HALF_UP)
-    text = f'{label} {prefix}{value:,}'
+    text = f'{label} {prefix}{value:,}{suffix}'
     change = quote.get('change_pct')
     if change is not None:
         arrow = '▲' if change > 0 else ('▼' if change < 0 else '•')
@@ -151,19 +177,23 @@ def market_block(market):
                          _market_item('Sensex', market.get('sensex'))) if x]
     second = [x for x in (_market_item('$1 =', market.get('usdinr'), '₹', 2),
                           _market_item('Crude', market.get('brent'), '$', 1)) if x]
+    third = [x for x in (_market_item('Intl gold', market.get('goldusd'), '$', suffix='/oz'),
+                         _market_item('GoldBees ETF', market.get('goldbees'), '₹', 2)) if x]
     lines = []
     if first:
         lines.append('📈 ' + ' · '.join(first))
     if second:
         lines.append('🌍 ' + ' · '.join(second))
+    if third:
+        lines.append('🥇 ' + ' · '.join(third))
     return lines
 
 
-def build_daily_message(quote, trend, market, now, ai_insights=None, tip=None):
+def build_daily_message(quote, trend, market, now, ai_insights=None, tip=None, invest=None):
     lines = [f"🪙 *Datia Gold Update* · {now.strftime('%d %b, %a')}",
              headline(quote, trend, now), '']
     lines += rate_block(quote, now)
-    for block in (trend_block(trend), jewellery_block(quote), market_block(market)):
+    for block in (trend_block(trend), investment_block(invest), jewellery_block(quote), market_block(market)):
         if block:
             lines += [''] + block
     if ai_insights:

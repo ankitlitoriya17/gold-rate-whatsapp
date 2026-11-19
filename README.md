@@ -12,10 +12,11 @@ A short Hinglish **10:00 PM IST daily gold update** for a WhatsApp group, plus a
 | Section | Content |
 |---|---|
 | Headline | One line: today's move and what stands out (lowest/highest in N days, N-day streak, or a ≥1.5% "bada move") |
-| Rates | 24K / 22K per 10g with change, per-gram price, silver per kg and per 10g |
+| Rates | 24K / 22K / 18K per 10g with change, per-gram price, silver per kg and per 10g |
+| Investment nazar | ₹1 lakh = X g 24K (vs 7 days ago), Gold:Silver ratio, 7-day Gold vs Nifty (once stored) |
 | Trend · 24K | 7-day and 30-day change, range over the stored window, up/down streak |
 | Jewellery estimate | 10g 22K bill range assuming 8–15% making + 3% GST |
-| Markets | One compact line each: Nifty/Sensex, USD/INR and Brent crude |
+| Markets | Nifty/Sensex; USD/INR + Brent; international gold ($/oz) + Gold BeES ETF |
 | AI ki nazar se | 2 lines (insight + what to watch tomorrow) from Groq, checked for invented numbers and advice words |
 | Kaam ki baat | A buyer tip on Mon/Wed/Fri (`tips.py`) |
 

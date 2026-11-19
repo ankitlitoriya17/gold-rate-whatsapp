@@ -267,3 +267,49 @@ class WeeklySendSlotTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class InvestmentAndEighteenKTest(unittest.TestCase):
+    def test_18k_from_history_table(self):
+        page = ('<table class="gh-table"><thead><tr><th scope="col">Datia<br>2026</th></tr></thead><tbody>'
+                '<tr> <td>Nov 18</td> <td>₹1,36,030</td> <td>x</td> <td>₹1,24,690</td> <td>x</td> '
+                '<td>₹1,02,022</td> <td>x</td> <td>₹79,351</td> <td>x</td> </tr></tbody></table>')
+        rows = extract_history_table(page, 'gold', TODAY)
+        self.assertEqual(rows[date(2026, 11, 18)]['gold18'], Decimal(102022))
+
+    def test_18k_shown_with_per_gram(self):
+        q = dict(quote(), gold18=Decimal(99937), delta18=Decimal(-2085))
+        msg = build_daily_message(q, None, {}, NOW)
+        self.assertIn('🟡 *18K:* ₹99,937/10g  (−₹2,085)', msg)
+        self.assertIn('· 18K ₹9,994', msg)
+        self.assertNotIn('18K', build_daily_message(quote(), None, {}, NOW))
+
+    def test_investment_facts_and_block(self):
+        hist = history_from([142680, 140000, 139000, 138000, 137000, 136030, 135000, 133250])
+        hist['2026-11-12']['nifty'] = '25000'
+        hist['2026-11-12']['silverkg'] = '220900'
+        q = quote()
+        info = rate_history.investment(hist, q, {'nifty': {'value': Decimal('25514.30')}})
+        self.assertAlmostEqual(float(info['grams_per_lakh']), 7.505, places=3)
+        self.assertAlmostEqual(float(info['grams_per_lakh_7d']), 7.009, places=3)
+        self.assertAlmostEqual(float(info['ratio']), 66.33, places=2)
+        self.assertAlmostEqual(float(info['nifty_pct_7d']), 2.057, places=2)
+        from daily_message import investment_block
+        block = '\n'.join(investment_block(info))
+        self.assertIn('₹1 lakh = 7.50g 24K sona (7 din pehle 7.01g)', block)
+        self.assertIn('Gold:Silver ratio 66.3 (7 din pehle 64.6)', block)
+        self.assertIn('7 din: Gold −6.6% · Nifty +2.1%', block)
+
+    def test_market_snapshot_only_on_primary_row(self):
+        hist = history_from([133250])
+        out = rate_history.merge_market(hist, {'nifty': {'value': Decimal('25514.3')},
+                                               'goldusd': None}, TODAY)
+        self.assertEqual(out[TODAY.isoformat()]['nifty'], '25514.3')
+        self.assertNotIn('gold_usd', out[TODAY.isoformat()])
+        self.assertEqual(rate_history.merge_market({}, {'nifty': {'value': 1}}, TODAY), {})
+
+    def test_intl_gold_and_etf_line(self):
+        from daily_message import market_block
+        lines = market_block({'goldusd': {'value': Decimal('4051.2'), 'change_pct': Decimal('-1.2')},
+                              'goldbees': {'value': Decimal('112.45'), 'change_pct': Decimal('-2.0')}})
+        self.assertEqual(lines, ['🥇 Intl gold $4,051/oz ▼1.20% · GoldBees ETF ₹112.45 ▼2.00%'])

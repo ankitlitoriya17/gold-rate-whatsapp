@@ -380,9 +380,12 @@ def build_report(now, preview, notes, sleep=time.sleep):
     trend = rate_history.stats(merged, 'gold24', quote['published']) if quote else None
 
     markets = fetch_market_quotes(now)
-    insights = generate_ai_insights(quote, markets, now, trend=trend)
-    message = build_daily_message(quote, trend, markets, now,
-                                  ai_insights=insights, tip=tip_for(now.date()))
+    if quote and quote['published'] == now.date():
+        merged = rate_history.merge_market(merged, markets, now.date())
+    invest = rate_history.investment(merged, quote, markets)
+    insights = generate_ai_insights(quote, markets, now, trend=trend, invest=invest)
+    message = build_daily_message(quote, trend, markets, now, ai_insights=insights,
+                                  tip=tip_for(now.date()), invest=invest)
 
     weekly = None
     if weekly_chart.is_weekly_day(now.date()) or preview:

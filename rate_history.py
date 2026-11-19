@@ -10,7 +10,8 @@ from decimal import Decimal
 HISTORY_PATH = 'data/rate_history.json'
 PRIMARY = 'aajtak-datia'
 KEEP_DAYS = 400
-FIELDS = ('gold24', 'gold22', 'silverkg')
+FIELDS = ('gold24', 'gold22', 'gold18', 'silverkg')
+MARKET_FIELDS = {'nifty': 'nifty', 'goldusd': 'gold_usd', 'usdinr': 'usdinr'}
 
 
 def _row(values, source):
@@ -39,7 +40,8 @@ def merge(history, quote):
         put(day, values)
     for day, values in (quote.get('silver_table') or {}).items():
         put(day, values)
-    put(quote['published'], {'gold24': quote['gold24'], 'gold22': quote['gold22']})
+    put(quote['published'], {'gold24': quote['gold24'], 'gold22': quote['gold22'],
+                             'gold18': quote.get('gold18')})
     if quote.get('silverkg') is not None and quote.get('silver_published'):
         put(quote['silver_published'], {'silverkg': quote['silverkg']})
 
@@ -48,6 +50,26 @@ def merge(history, quote):
         cutoff = (_date(newest) - timedelta(days=KEEP_DAYS)).isoformat()
         merged = {d: r for d, r in merged.items() if d >= cutoff}
     return merged
+
+
+def merge_market(history, market, day):
+    """Store today's market closes on an existing primary row (for later comparisons)."""
+    row = (history or {}).get(day.isoformat())
+    if not row or row.get('source') != PRIMARY:
+        return history
+    merged = dict(history)
+    row = dict(row)
+    for key, field in MARKET_FIELDS.items():
+        item = (market or {}).get(key)
+        if item and item.get('value') is not None:
+            row[field] = str(item['value'])
+    merged[day.isoformat()] = row
+    return merged
+
+
+def value_days_ago(history, field, as_of, days, tolerance=3):
+    """(date, value) of a primary-source field about `days` before as_of, else None."""
+    return _value_near(series(history, field, upto=as_of), as_of - timedelta(days=days), tolerance)
 
 
 def _date(text):
@@ -118,3 +140,26 @@ def last_n_days(history, field, as_of, days=30):
 
 def encode(history):
     return {day: dict(row) for day, row in sorted(history.items())}
+
+
+def investment(history, quote, market):
+    """Data-only investment context for the message. Every value comes from stored rates."""
+    if not quote:
+        return None
+    as_of = quote['published']
+    gold_g = Decimal(quote['gold24']) / 10
+    info = {'grams_per_lakh': Decimal(100000) / gold_g}
+    old = value_days_ago(history, 'gold24', as_of, 7)
+    if old:
+        info['grams_per_lakh_7d'] = Decimal(100000) / (old[1] / 10)
+    if quote.get('silverkg') and quote.get('silver_published') == as_of:
+        info['ratio'] = gold_g / (Decimal(quote['silverkg']) / 1000)
+        old_s = value_days_ago(history, 'silverkg', as_of, 7)
+        if old and old_s:
+            info['ratio_7d'] = (old[1] / 10) / (old_s[1] / 1000)
+    old_n = value_days_ago(history, 'nifty', as_of, 7)
+    nifty = (market or {}).get('nifty')
+    if old and old_n and nifty and nifty.get('value'):
+        info['gold_pct_7d'] = (Decimal(quote['gold24']) - old[1]) / old[1] * 100
+        info['nifty_pct_7d'] = (Decimal(nifty['value']) - old_n[1]) / old_n[1] * 100
+    return info

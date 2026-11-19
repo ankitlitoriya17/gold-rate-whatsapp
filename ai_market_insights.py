@@ -24,7 +24,8 @@ SYSTEM = (
     'khareedne wale, chhote investors). Language: simple Hinglish (Roman script).\n'
     'Return strict JSON with fields insight and watch. Har field ek chhota sentence, 15-30 words (max 35).\n'
     '- insight: aaj ke gold/silver move ko trend (7/30 din, lagataar din) aur rupee, crude, '
-    'equities ke saath jodo, aur batao iska aam aadmi ke liye kya matlab hai. Jo rishte aam '
+    'international gold aur equities ke saath jodo (jaise: Datia ka move global gold se aaya ya '
+    'rupee se), aur batao iska aam aadmi ke liye kya matlab hai. Jo rishte aam '
     'taur par dekhe jaate hain unhe "aksar", "ho sakta hai" ke saath batao, pakka cause mat bolo.\n'
     '- watch: kal ke liye ek specific cheez jis par nazar rakhni chahiye, aur kyun.\n'
     'Rules: Sirf diye gaye numbers use karo, bilkul waise hi jaise likhe hain; koi naya '
@@ -89,7 +90,7 @@ def _metal_line(name, unit, price, delta, published, today):
     return line + f', {move} vs pichhla published quote'
 
 
-def market_observations(gold, market, today, trend=None):
+def market_observations(gold, market, today, trend=None, invest=None):
     """Verified, human-readable facts. Contains prices but never PII or credentials."""
     facts = []
     if gold is None:
@@ -123,6 +124,13 @@ def market_observations(gold, market, today, trend=None):
         if trend.get('streak', 0) >= 2:
             facts.append(f"24K gold lagataar {trend['streak']} din se "
                          + ('gir raha hai' if trend['streak_dir'] < 0 else 'badh raha hai'))
+    if invest:
+        if invest.get('ratio') is not None:
+            facts.append(f"Gold:Silver ratio (1g sone mein kitne gram chandi): {_two(invest['ratio'])}"
+                         + (f", 7 din pehle {_two(invest['ratio_7d'])}" if invest.get('ratio_7d') else ''))
+        if invest.get('nifty_pct_7d') is not None:
+            facts.append(f"7 din mein 24K gold {_signed_pct(invest['gold_pct_7d'])}, "
+                         f"Nifty {_signed_pct(invest['nifty_pct_7d'])}")
     # Meaning is spelled out so the model cannot misread direction (e.g. USD/INR down
     # means the rupee got STRONGER).
     labels = {
@@ -133,6 +141,10 @@ def market_observations(gold, market, today, trend=None):
                     'dollar sasta hua, yaani rupee MAZBOOT hua')),
         'brent': ('Brent crude futures', ' dollars per barrel',
                   ('crude mehenga hua', 'crude sasta hua')),
+        'goldusd': ('International gold futures', ' dollars per ounce',
+                    ('global gold upar gaya', 'global gold neeche aaya')),
+        'goldbees': ('Gold BeES ETF (NSE)', ' rupees per unit',
+                     ('gold ETF upar gaya', 'gold ETF neeche aaya')),
     }
     for key, (label, unit, meaning) in labels.items():
         item = (market or {}).get(key)
@@ -249,7 +261,7 @@ def _request(model, key, facts):
     )
 
 
-def generate_ai_insights(gold, market, now=None, trend=None):
+def generate_ai_insights(gold, market, now=None, trend=None, invest=None):
     """Tries the larger model, then the smaller one. Returns None on any problem."""
     key = os.getenv('GROQ_API_KEY', '').strip()
     if not key:
@@ -257,7 +269,7 @@ def generate_ai_insights(gold, market, now=None, trend=None):
         return None
 
     today = now.date() if now is not None else date.today()
-    facts = market_observations(gold, market, today, trend)
+    facts = market_observations(gold, market, today, trend, invest)
     usable = [f for f in facts if 'unavailable' not in f and 'stale' not in f]
     if len(usable) < 2:
         print('AI INSIGHTS: skipped (insufficient fresh observations)')

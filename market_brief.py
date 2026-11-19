@@ -17,6 +17,9 @@ ASSETS = {
     'sensex': {'symbol': '^BSESN', 'currency': 'INR', 'lo': 20000, 'hi': 250000},
     'usdinr': {'symbol': 'INR=X', 'currency': 'INR', 'lo': 40, 'hi': 250},
     'brent': {'symbol': 'BZ=F', 'currency': 'USD', 'lo': 10, 'hi': 350},
+    # International gold futures (USD per troy ounce) and Nippon India Gold BeES ETF (NSE).
+    'goldusd': {'symbol': 'GC=F', 'currency': 'USD', 'lo': 500, 'hi': 20000},
+    'goldbees': {'symbol': 'GOLDBEES.NS', 'currency': 'INR', 'lo': 10, 'hi': 2000},
 }
 
 

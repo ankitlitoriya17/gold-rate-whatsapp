@@ -138,6 +138,9 @@ def fetch_datia_quote(today=None):
             raise PriceDataNotReady(f'Missing {needed} in Datia price card')
     gold24, delta24 = gold['24 Karat']
     gold22, delta22 = gold['22 Karat']
+    gold18, delta18 = gold.get('18 Karat', (None, None))
+    if gold18 is not None and not (Decimal('0.70') < gold18 / gold24 < Decimal('0.80')):
+        gold18, delta18 = None, None  # optional; drop if implausible
     silverkg, delta_silver = silver['1 kg']
     if not (Decimal(60000) < gold22 <= gold24 < Decimal(400000) and
             Decimal('0.85') < gold22 / gold24 < Decimal('0.97') and
@@ -152,6 +155,8 @@ def fetch_datia_quote(today=None):
         'silverkg': silverkg,
         'delta24': delta24,
         'delta22': delta22,
+        'gold18': gold18,
+        'delta18': delta18,
         'delta_silver': delta_silver,
         'source': 'aajtak-datia',
         # Up to ~10 previous days published on the same pages (best effort).
@@ -208,6 +213,9 @@ def extract_history_table(page, metal, today):
             g24, g22 = _rupee_cell(cells[1]), _rupee_cell(cells[3])
             if g24 and g22 and Decimal(60000) < g22 <= g24 < Decimal(400000):
                 rows[day] = {'gold24': g24, 'gold22': g22}
+                g18 = _rupee_cell(cells[5]) if len(cells) > 5 else None
+                if g18 and Decimal('0.70') < g18 / g24 < Decimal('0.80'):
+                    rows[day]['gold18'] = g18
         else:
             kg = _rupee_cell(cells[1])
             if kg and Decimal(80000) < kg < Decimal(600000):
