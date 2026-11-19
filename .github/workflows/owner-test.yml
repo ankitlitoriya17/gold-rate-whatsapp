@@ -1,5 +1,5 @@
 name: Manual send (owner test / group)
-# Manual: sends tonight's full daily message and the chart to the owner (RECIPIENT_2). Never the group.
+# Manual only. target=owner: today's message + chart to RECIPIENT_2. target=group: today's message to the group (not recorded in the ledger).
 on:
   workflow_dispatch:
     inputs:

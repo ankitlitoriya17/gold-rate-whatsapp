@@ -23,6 +23,6 @@ Daily Datia gold-rate WhatsApp bot (GitHub Actions + GREEN-API). Read README.md 
 - GREEN-API media host (`*.media.greenapi.com`) does not resolve for this instance. Uploads fall
   back to the API host (`weekly_chart.upload_with_fallback`).
 - This session cannot create Actions secrets via API; ask the owner to add them in Settings.
-- Test without touching the group: `Owner test` workflow (owner number only) or the daily
-  workflow with `dry_run=true`.
+- Test without touching the group: `Manual send` workflow with target=owner, or the daily
+  workflow with `dry_run=true`. target=group sends to the group immediately; use it only when the owner asks.
 - Before pushing: `ruff check .` and `python -m unittest discover -s tests`.
