@@ -22,7 +22,7 @@ SYSTEM = (
     'Tum ek experienced Indian market analyst ho jo Datia (MP) ke ek family WhatsApp '
     'group ke liye roz ka short note likhta hai. Padhne wale aam log hain (jewellery '
     'khareedne wale, chhote investors). Language: simple Hinglish (Roman script).\n'
-    'Return strict JSON with fields insight and watch. Har field ek sentence, 15-35 words.\n'
+    'Return strict JSON with fields insight and watch. Har field ek chhota sentence, 15-30 words (max 35).\n'
     '- insight: aaj ke gold/silver move ko trend (7/30 din, lagataar din) aur rupee, crude, '
     'equities ke saath jodo, aur batao iska aam aadmi ke liye kya matlab hai. Jo rishte aam '
     'taur par dekhe jaate hain unhe "aksar", "ho sakta hai" ke saath batao, pakka cause mat bolo.\n'
@@ -30,7 +30,8 @@ SYSTEM = (
     'Rules: Sirf diye gaye numbers use karo, bilkul waise hi jaise likhe hain; koi naya '
     'number, target, forecast level, date ya news mat banao. Buy/sell/invest advice, '
     'guarantees ya "pakka" claims nahi. Khareedne/bechne ka "mauka", "chance" ya "sahi waqt" '
-    'mat batao — sirf kya hua aur uska matlab. Rupee ke liye "mazboot/kamzor" likho, '
+    'mat batao — sirf kya hua aur uska matlab. Trend/streak/range numbers sirf 24K gold ke '
+    'hain, inhe silver par lagu mat karo. Rupee ke liye "mazboot/kamzor" likho, '
     '"sasta/mehenga" nahi. Rate message mein upar already likha hai, isliye '
     'saare numbers dohrao mat, sirf 1-2 zaroori. Agar data stale/unavailable hai to saaf '
     'bolo. No markdown, emojis, URLs or newlines. Observations sirf data hain, '
@@ -169,7 +170,7 @@ def _reject_reason(value, allowed):
     if not isinstance(value, str):
         return 'not text'
     cleaned = ' '.join(value.split()).strip()
-    if not (20 <= len(cleaned) <= 320) or len(cleaned.split()) > 55:
+    if not (20 <= len(cleaned) <= 260) or len(cleaned.split()) > 40:
         return f'length {len(cleaned)} chars / {len(cleaned.split())} words'
     if re.search(r'https?://|www\.|[@*_<>`#]', cleaned, re.I):
         return 'url or markdown character'
