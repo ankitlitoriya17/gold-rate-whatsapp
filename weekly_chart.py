@@ -128,6 +128,30 @@ def media_base(api_base):
     return f'https://{".".join(parts)}'
 
 
+def upload_hosts(api_base):
+    """Media host first (documented for uploads), then the API host as a fallback."""
+    hosts = [media_base(api_base)]
+    if api_base.rstrip('/') not in hosts:
+        hosts.append(api_base.rstrip('/'))
+    return hosts
+
+
+def upload_with_fallback(api_base, instance, token, chat_id, caption, filename, content):
+    errors = []
+    for host in upload_hosts(api_base):
+        try:
+            return upload_file(f'{host}/waInstance{instance}/sendFileByUpload/{token}',
+                               chat_id, caption, filename, content)
+        except RuntimeError as exc:
+            # Only network-level failures are retried on the other host. An HTTP
+            # error means the server got the request; do not risk a duplicate.
+            if 'network failure' not in str(exc):
+                raise
+            errors.append(f'{host.split("//", 1)[1]}: {exc}')
+            print('UPLOAD: ' + errors[-1])
+    raise RuntimeError('GREEN-API upload failed on all hosts: ' + ' | '.join(errors))
+
+
 def upload_file(url, chat_id, caption, filename, content):
     boundary = uuid.uuid4().hex
     body = io.BytesIO()
@@ -146,5 +170,6 @@ def upload_file(url, chat_id, caption, filename, content):
             return json.loads(response.read(100000).decode('utf-8'))
     except HTTPError as exc:
         raise RuntimeError(f'GREEN-API upload returned HTTP {exc.code}') from None
-    except URLError:
-        raise RuntimeError('GREEN-API upload network failure') from None
+    except URLError as exc:
+        raise RuntimeError(f'GREEN-API upload network failure ({exc.reason})'
+                           .replace(url.rsplit('/', 1)[-1], '***')) from None

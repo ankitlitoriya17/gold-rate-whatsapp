@@ -297,10 +297,9 @@ def send(message, now=None, ledger=None, image=None, slot='daily'):
                 result = call_api(f'{prefix}/sendMessage/{token}',
                                   {'chatId': chat, 'message': message})
             else:
-                from weekly_chart import media_base, upload_file
-                result = upload_file(
-                    f'{media_base(api_base())}/waInstance{instance}/sendFileByUpload/{token}',
-                    chat, message, f'datia-gold-{alert_day}.png', image)
+                from weekly_chart import upload_with_fallback
+                result = upload_with_fallback(api_base(), instance, token, chat, message,
+                                              f'datia-gold-{alert_day}.png', image)
             message_id = result.get('idMessage')
             if not message_id:
                 raise RuntimeError(f'{label}: API did not confirm queue acceptance')

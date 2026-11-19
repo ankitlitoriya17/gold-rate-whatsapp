@@ -176,6 +176,25 @@ class WeeklyTest(unittest.TestCase):
         self.assertEqual(weekly_chart.media_base('https://api.green-api.com'),
                          'https://media.green-api.com')
 
+    def test_upload_falls_back_to_api_host_only_on_network_error(self):
+        calls = []
+        def fake(url, *a):
+            calls.append(url)
+            if 'media' in url:
+                raise RuntimeError('GREEN-API upload network failure (dns)')
+            return {'idMessage': 'ok'}
+        with patch('weekly_chart.upload_file', side_effect=fake), redirect_stdout(io.StringIO()):
+            out = weekly_chart.upload_with_fallback('https://7107.api.greenapi.com', '1', 't',
+                                                    'x@c.us', 'c', 'a.png', b'p')
+        self.assertEqual(out['idMessage'], 'ok')
+        self.assertEqual([u.split('/waInstance')[0] for u in calls],
+                         ['https://7107.media.greenapi.com', 'https://7107.api.greenapi.com'])
+        with patch('weekly_chart.upload_file', side_effect=RuntimeError('GREEN-API upload returned HTTP 500')) as up:
+            with self.assertRaises(RuntimeError):
+                weekly_chart.upload_with_fallback('https://7107.api.greenapi.com', '1', 't',
+                                                  'x@c.us', 'c', 'a.png', b'p')
+        self.assertEqual(up.call_count, 1)
+
     def test_upload_builds_multipart(self):
         class R:
             def __enter__(self): return self

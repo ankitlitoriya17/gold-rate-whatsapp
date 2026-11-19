@@ -114,11 +114,9 @@ def send_test(now=None):
     owner = owner_chat()
     instance = os.environ['GREEN_API_INSTANCE_ID'].strip()
     token = os.environ['GREEN_API_TOKEN'].strip()
-    media = weekly_chart.media_base(gold_alert.api_base())
-    print(f'OWNER TEST: uploading chart via media host {media.split("//", 1)[1]}')
-    result = weekly_chart.upload_file(f'{media}/waInstance{instance}/sendFileByUpload/{token}',
-                                      owner, '🧪 *TEST — Sunday chart preview*\n\n' + caption,
-                                      'datia-gold-test.png', image)
+    result = weekly_chart.upload_with_fallback(
+        gold_alert.api_base(), instance, token, owner,
+        '🧪 *TEST — Sunday chart preview*\n\n' + caption, 'datia-gold-test.png', image)
     ok_image = bool(result.get('idMessage'))
     print(f'OWNER TEST: text {"accepted" if ok_text else "FAILED"}, chart {"accepted" if ok_image else "FAILED"}')
     if not (ok_text and ok_image):
