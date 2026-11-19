@@ -161,21 +161,28 @@ def _allowed_numbers(facts):
     return allowed
 
 
-def _safe_sentence(value, allowed):
+def _reject_reason(value, allowed):
+    """None if the sentence is safe, else a short reason (logged; the text is not secret)."""
     if not isinstance(value, str):
-        return None
+        return 'not text'
     cleaned = ' '.join(value.split()).strip()
     if not (20 <= len(cleaned) <= 260) or len(cleaned.split()) > 45:
-        return None
+        return f'length {len(cleaned)} chars / {len(cleaned.split())} words'
     if re.search(r'https?://|www\.|[@*_<>`#]', cleaned, re.I):
-        return None
-    if BANNED.search(cleaned):
-        return None
+        return 'url or markdown character'
+    banned = BANNED.search(cleaned)
+    if banned:
+        return f'advice word "{banned.group(0)}"'
     for token in NUMBER_RE.findall(cleaned):
-        normalized = token.replace(',', '')
-        if normalized not in allowed:
-            return None
-    return cleaned
+        if token.replace(',', '') not in allowed:
+            return f'unverified number "{token}"'
+    return None
+
+
+def _safe_sentence(value, allowed):
+    if _reject_reason(value, allowed):
+        return None
+    return ' '.join(value.split()).strip()
 
 
 def parse_ai_response(payload, facts):
@@ -186,6 +193,10 @@ def parse_ai_response(payload, facts):
         if not isinstance(result, dict) or set(result) != set(FIELDS):
             return None
         allowed = _allowed_numbers(facts)
+        for name in FIELDS:
+            reason = _reject_reason(result[name], allowed)
+            if reason:
+                print(f'AI INSIGHTS: {name} rejected ({reason}): {str(result[name])[:200]}')
         cleaned = {name: _safe_sentence(result[name], allowed) for name in FIELDS}
         if not all(cleaned.values()) or len(set(cleaned.values())) != len(FIELDS):
             return None
