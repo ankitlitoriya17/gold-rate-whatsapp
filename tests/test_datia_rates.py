@@ -127,3 +127,39 @@ class DatiaSourceTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FetchRetryTest(unittest.TestCase):
+    def _ok(self, body):
+        class R:
+            status = 200
+            def __enter__(s): return s
+            def __exit__(s, *a): return False
+            def read(s, n): return body.encode()[:n]
+        return R()
+
+    def test_retries_then_succeeds(self):
+        from urllib.error import URLError
+        from datia_rates import fetch_html
+        good = page('Gold', '19/11/2026', [('22 Karat', 122140, -2550), ('24 Karat', 133250, -2780)])
+        waits = []
+        with patch('datia_rates.urlopen', side_effect=[URLError('timed out'), self._ok(good)]) as call:
+            self.assertEqual(fetch_html(GOLD_URL, sleep=waits.append), good)
+        self.assertEqual(call.call_count, 2)
+        self.assertEqual(waits, [5])
+        ua = call.call_args.args[0].get_header('User-agent')
+        self.assertIn('Chrome', ua)
+
+    def test_bot_page_and_http_errors_reported(self):
+        import io
+        from urllib.error import HTTPError
+        from datia_rates import fetch_html
+        blocked = HTTPError(GOLD_URL, 403, 'Forbidden', {}, io.BytesIO(b''))
+        with patch('datia_rates.urlopen',
+                   side_effect=[blocked, self._ok('<html>Access Denied</html>'), TimeoutError()]):
+            with self.assertRaises(PriceDataNotReady) as ctx:
+                fetch_html(GOLD_URL, sleep=lambda s: None)
+        msg = str(ctx.exception)
+        self.assertIn('HTTP 403', msg)
+        self.assertIn('bot block', msg)
+        self.assertIn('TimeoutError', msg)

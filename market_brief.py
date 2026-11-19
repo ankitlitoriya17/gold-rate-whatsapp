@@ -225,8 +225,9 @@ def format_investor_brief(gold, market, now, ai_insights=None):
         lines += [
             '',
             '🧠 *AI MARKET INSIGHTS · Observations only*',
-            ai_insights['summary'],
-            '🔎 Watch: ' + ai_insights['watch'],
+            '📌 ' + ai_insights['summary'],
+        ] + (['🟡 ' + ai_insights['gold']] if ai_insights.get('gold') else []) + [
+            '🔎 Kal dekhein: ' + ai_insights['watch'],
         ]
     lines.extend([
         '',

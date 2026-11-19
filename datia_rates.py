@@ -5,6 +5,7 @@ Send latest available dated quotations, even on weekends or when sources lag, an
 """
 import html
 import re
+import time
 from datetime import date, datetime
 from decimal import Decimal
 from urllib.error import HTTPError, URLError
@@ -25,24 +26,58 @@ class PriceDataNotReady(RuntimeError):
     """Do not send and do not claim the daily ledger; retry at the next check."""
 
 
-def fetch_html(url):
+BROWSER_HEADERS = {
+    'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'),
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9,hi;q=0.8',
+    'Cache-Control': 'no-cache',
+}
+RETRY_DELAYS = (5, 15)  # seconds to wait before attempt 2 and attempt 3
+
+
+def _describe(exc):
+    """Short, secret-free reason for logs (HTTP code or exception type)."""
+    if isinstance(exc, HTTPError):
+        return f'HTTP {exc.code}'
+    if isinstance(exc, URLError):
+        return f'network error ({type(exc.reason).__name__})'
+    if isinstance(exc, PriceDataNotReady):
+        return str(exc)
+    return type(exc).__name__
+
+
+def _fetch_once(url):
+    request = Request(url, headers=BROWSER_HEADERS)
+    with urlopen(request, timeout=30) as response:
+        if response.status != 200:
+            raise PriceDataNotReady(f'HTTP {response.status}')
+        raw = response.read(3_000_001)
+        if len(raw) > 3_000_000:
+            raise PriceDataNotReady('Datia page too large')
+        page = raw.decode('utf-8', 'replace')
+    if 'gs-price-card' not in page:
+        # Bot-check / error pages come back as 200 without the price card.
+        raise PriceDataNotReady('page without price card (possible bot block)')
+    return page
+
+
+def fetch_html(url, sleep=time.sleep):
     if url not in (GOLD_URL, SILVER_URL):
         raise ValueError('Unexpected rate URL')
-    request = Request(url, headers={
-        'User-Agent': 'Mozilla/5.0 (compatible; DatiaGoldRateAlert/1.0)',
-        'Accept': 'text/html',
-        'Cache-Control': 'no-cache',
-    })
-    try:
-        with urlopen(request, timeout=25) as response:
-            if response.status != 200:
-                raise PriceDataNotReady(f'Datia source returned HTTP {response.status}')
-            raw = response.read(3_000_001)
-            if len(raw) > 3_000_000:
-                raise PriceDataNotReady('Datia page too large')
-            return raw.decode('utf-8', 'replace')
-    except (HTTPError, URLError):
-        raise PriceDataNotReady('Datia rate source unavailable') from None
+    reasons = []
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        if attempt:
+            sleep(RETRY_DELAYS[attempt - 1])
+        try:
+            return _fetch_once(url)
+        except (OSError, PriceDataNotReady) as exc:  # URLError/HTTPError/timeouts are OSError
+            reason = _describe(exc)
+            reasons.append(reason)
+            print(f'DATIA FETCH attempt {attempt + 1} failed for '
+                  f'{url.rsplit("/", 1)[-1]}: {reason}')
+    raise PriceDataNotReady('Datia rate source unavailable after '
+                            f'{len(reasons)} attempts: ' + '; '.join(reasons))
 
 
 def extract_price_card(page, expected_type):
