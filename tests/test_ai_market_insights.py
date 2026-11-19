@@ -120,6 +120,8 @@ class GroqInsightTests(unittest.TestCase):
             dict(SAFE, insight='Abhi gold kharido, ye guaranteed profit wala mauka hai sabke liye.'),
             dict(SAFE, watch='Kal ke liye details https://bad.example.com par dekhein zaroor.'),
             dict(SAFE, insight=''),
+            dict(SAFE, insight='Gold 7 din mein neeche aaya, jewellery wale logon ke liye ye buying chance ho sakta hai.'),
+            dict(SAFE, insight='Gold neeche aaya kyunki rupee aur crude saste hue, equities upar rahe aaj.'),
         ):
             with self.subTest(invalid=invalid):
                 self.assertIsNone(parse_ai_response(reply(invalid), FACTS))
