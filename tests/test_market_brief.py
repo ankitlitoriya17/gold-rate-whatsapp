@@ -2,7 +2,6 @@ import unittest
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
-from zoneinfo import ZoneInfo
 
 from market_brief import (
     ASSETS, IST, MarketQuoteError, fetch_market_quotes,

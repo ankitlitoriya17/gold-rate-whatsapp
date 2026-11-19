@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from urllib.parse import urlparse
@@ -11,9 +12,16 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
 from delivery_ledger import DeliveryLedger
-from datia_rates import fetch_datia_quote, format_datia_message, PriceDataNotReady
-from market_brief import fetch_market_quotes, format_investor_brief
+from datia_rates import fetch_datia_quote, format_datia_message, PriceDataNotReady  # noqa: F401
+from backup_rates import fetch_backup_quote, cross_check
+from market_brief import fetch_market_quotes
 from ai_market_insights import generate_ai_insights
+from daily_message import build_daily_message
+from owner_alert import send_owner_alert
+from rate_history import HISTORY_PATH
+from tips import tip_for
+import rate_history
+import weekly_chart
 
 TZ = ZoneInfo('Asia/Kolkata')
 SOURCE = 'https://trackliveprice.com'
@@ -200,7 +208,7 @@ def destination_chat(value):
 def destination_chats():
     """Only send to RECIPIENT_2 and optional GROUP_CHAT_ID.
 
-    RECIPIENT_1 is intentionally ignored (including when its secret remains set)
+    RECIPIENT_1 never receives the daily message; it only gets owner alerts
     to avoid attempting the extra GREEN-API correspondent.
     """
     chats = [destination_chat(os.environ['RECIPIENT_2'])]
@@ -227,7 +235,13 @@ def call_api(url, payload=None):
         raise RuntimeError('GREEN-API network connection failed') from None
 
 
-def send(message, now=None, ledger=None):
+def send(message, now=None, ledger=None, image=None, slot='daily'):
+    """Deliver to RECIPIENT_2 and the group, once per IST day per slot.
+
+    slot='daily' sends text; slot='weekly' uploads `image` (PNG bytes) with
+    `message` as caption. Each (day, chat, slot) is claimed in the ledger BEFORE
+    calling GREEN-API, so a retry or second trigger never sends duplicates.
+    """
     needed = ('GREEN_API_INSTANCE_ID', 'GREEN_API_TOKEN',
               'RECIPIENT_2')
     missing = [name for name in needed if not os.environ.get(name)]
@@ -248,54 +262,157 @@ def send(message, now=None, ledger=None):
                                 os.environ.get('GITHUB_TOKEN'))
     alert_day = (now or datetime.now(TZ)).date().isoformat()
 
-    for index, chat in enumerate(chats, start=1):
+    for chat in chats:
         label = 'GROUP_CHAT_ID' if chat == (os.environ.get('GROUP_CHAT_ID') or '').strip() else 'RECIPIENT_2'
+        if slot != 'daily':
+            label += f' ({slot})'
+        claim_key = chat if slot == 'daily' else f'{chat}#{slot}'
         # Commit attempt BEFORE calling GREEN-API. Avoid resending on uncertain
         # timeout/crash: a claimed destination requires manual review.
-        if not ledger.claim(alert_day, chat):
+        if not ledger.claim(alert_day, claim_key):
             print(f'{label}: already attempted today; skipping duplicate')
             continue
         try:
-            result = call_api(f'{prefix}/sendMessage/{token}',
-                              {'chatId': chat, 'message': message})
+            if image is None:
+                result = call_api(f'{prefix}/sendMessage/{token}',
+                                  {'chatId': chat, 'message': message})
+            else:
+                from weekly_chart import media_base, upload_file
+                result = upload_file(
+                    f'{media_base(api_base())}/waInstance{instance}/sendFileByUpload/{token}',
+                    chat, message, f'datia-gold-{alert_day}.png', image)
             message_id = result.get('idMessage')
             if not message_id:
                 raise RuntimeError(f'{label}: API did not confirm queue acceptance')
-            ledger.update(alert_day, chat, 'queued', message_id)
+            ledger.update(alert_day, claim_key, 'queued', message_id)
         except Exception:
             # An unsuccessful POST may still have reached the provider;
             # do not blindly retry and accidentally deliver duplicates.
             try:
-                ledger.update(alert_day, chat, 'review')
+                ledger.update(alert_day, claim_key, 'review')
             except Exception:
                 pass
             raise
         print(f'{label}: accepted by API and receipt recorded (delivery unconfirmed)')
 
 
-def main():
+def _flag(name):
+    return os.environ.get(name, '').strip().lower() in ('1', 'true', 'yes')
+
+
+def get_quote(now, dry, notes, sleep=time.sleep):
+    """Aaj Tak Datia first; if it fails, wait HOLD_MINUTES and retry; then backup city."""
+    today = now.date()
+    try:
+        quote = fetch_datia_quote(today)
+    except PriceDataNotReady as exc:
+        print(f'DATIA SOURCE UNAVAILABLE/INVALID: {exc}')
+        hold = int(os.environ.get('HOLD_MINUTES', '10') or 0)
+        quote = None
+        if hold > 0 and not dry:
+            print(f'DATIA: holding {hold} min before one more try')
+            sleep(hold * 60)
+            try:
+                quote = fetch_datia_quote(today)
+                notes.append(f'Aaj Tak pehli baar fail hua ({exc}), {hold} min baad mil gaya.')
+            except PriceDataNotReady as again:
+                print(f'DATIA SOURCE still unavailable: {again}')
+                exc = again
+        if quote is None:
+            try:
+                quote = fetch_backup_quote(today)
+                notes.append(f'Aaj Tak Datia fail ({exc}). Backup Goodreturns Bhopal ka rate bheja gaya.')
+            except PriceDataNotReady as backup_exc:
+                notes.append(f'Aaj Tak Datia fail ({exc}) aur backup bhi fail ({backup_exc}). '
+                             'Message bina gold rate ke gaya.')
+                print(f'BACKUP SOURCE UNAVAILABLE: {backup_exc}')
+            return quote
+    # Primary worked: best-effort cross-check against the backup city.
+    try:
+        warning = cross_check(quote, fetch_backup_quote(today))
+        if warning:
+            notes.append(warning)
+            print('CROSS-CHECK: ' + warning)
+        else:
+            print('CROSS-CHECK: Datia 24K within range of Bhopal')
+    except PriceDataNotReady as exc:
+        print(f'CROSS-CHECK skipped: {exc}')
+    return quote
+
+
+def load_history(dry, notes):
+    repo, token = os.environ.get('GITHUB_REPOSITORY'), os.environ.get('GITHUB_TOKEN')
+    if not repo or not token:
+        return None, {}, None
+    try:
+        store = DeliveryLedger(repo, token, path=HISTORY_PATH)
+        history, sha = store.read()
+        return store, history, sha
+    except Exception as exc:
+        notes.append(f'Rate history read nahi hui ({exc}); trend sirf aaj ki table se.')
+        return None, {}, None
+
+
+def main(sleep=time.sleep):
     now = datetime.now(TZ)
     # External and manual workflow dispatches may run at any time. Never skip a
-    # verified daily report solely because the scheduler was late or the quote
-    # source has not updated. All rates carry their actual publication dates.
-    # Claims are per IST report date and per recipient, avoiding duplicates.
-    try:
-        quote = fetch_datia_quote(now.date())
-    except PriceDataNotReady as exc:
-        print(f'DATIA SOURCE UNAVAILABLE/INVALID: {exc}; reporting availability gap')
-        quote = None
-    # Always send the daily brief, even if either data source is temporarily
-    # unavailable; never invent missing prices. Duplicate protection remains.
-    markets = fetch_market_quotes(now)
-    insights = generate_ai_insights(quote, markets, now)
-    message = format_investor_brief(quote, markets, now, ai_insights=insights)
-    dry = os.environ.get('DRY_RUN', '').strip().lower() in ('1', 'true', 'yes')
+    # report solely because the scheduler was late or a source lagged. All rates
+    # carry their actual publication dates. Claims are per IST day and recipient.
+    dry = _flag('DRY_RUN')
     enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
-    if dry or not enabled:
+    preview = dry or not enabled
+    notes = []
+
+    quote = get_quote(now, preview, notes, sleep)
+    store, history, sha = load_history(preview, notes)
+    merged = rate_history.merge(history, quote)
+    trend = rate_history.stats(merged, 'gold24', quote['published']) if quote else None
+
+    markets = fetch_market_quotes(now)
+    insights = generate_ai_insights(quote, markets, now, trend=trend)
+    message = build_daily_message(quote, trend, markets, now,
+                                  ai_insights=insights, tip=tip_for(now.date()))
+
+    weekly = None
+    if weekly_chart.is_weekly_day(now.date()) or preview:
+        caption = weekly_chart.weekly_caption(merged, now.date())
+        image = weekly_chart.render_chart(merged, now.date()) if caption else None
+        if caption and image:
+            weekly = (caption, image)
+        elif weekly_chart.is_weekly_day(now.date()):
+            notes.append('Sunday chart nahi bana (history kam hai ya matplotlib missing).')
+
+    if preview:
         print('PREVIEW ONLY — no WhatsApp messages sent')
         print(message)
+        if weekly:
+            with open('weekly_preview.png', 'wb') as handle:
+                handle.write(weekly[1])
+            print('\n--- Weekly caption (Sunday only; image saved as weekly_preview.png) ---')
+            print(weekly[0])
+        for note in notes:
+            print('NOTE: ' + note)
         return
+
     send(message, now=now)
+
+    if weekly and weekly_chart.is_weekly_day(now.date()):
+        try:
+            send(weekly[0], now=now, image=weekly[1], slot='weekly')
+        except Exception as exc:
+            notes.append(f'Sunday chart bhejne mein problem: {exc}')
+
+    if store is not None and merged != history:
+        try:
+            store.write(rate_history.encode(merged), sha,
+                        message='Update Datia rate history [skip ci]')
+            print(f'HISTORY: saved {len(merged)} days')
+        except Exception as exc:
+            notes.append(f'Rate history save nahi hui ({exc}).')
+
+    if notes:
+        send_owner_alert('\n'.join('- ' + n for n in notes), now)
+
 
 if __name__ == '__main__':
     try:

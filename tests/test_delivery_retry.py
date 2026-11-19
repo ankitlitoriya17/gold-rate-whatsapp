@@ -52,61 +52,60 @@ class RetryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeliveryLedger('bad repo', 'fake')
 
-    def test_external_dispatch_sends_even_if_late(self):
-        from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 12, 22, 45, tzinfo=ZoneInfo('Asia/Kolkata'))
-        quote = {'published': late.date()}
-        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                                      'ENFORCE_DELIVERY_WINDOW': 'true',
-                                      'SEND_ENABLED': 'true',
-                                      'DRY_RUN': 'false'}, clear=True):
-            with patch.object(gold_alert, 'datetime') as dt, patch.object(
-                    gold_alert, 'fetch_datia_quote', return_value=quote) as fetch, patch.object(
-                    gold_alert, 'fetch_market_quotes', return_value={}) as markets, patch.object(
-                    gold_alert, 'format_investor_brief', return_value='latest dated rates'), patch.object(
-                    gold_alert, 'send') as send:
-                dt.now.return_value = late
-                gold_alert.main()
-                fetch.assert_called_once_with(late.date())
-                markets.assert_called_once_with(late)
-                send.assert_called_once_with('latest dated rates', now=late)
-
-    def test_unrestricted_manual_dry_run_still_allowed(self):
-        from zoneinfo import ZoneInfo
-        late = datetime(2026, 11, 10, 23, 0, tzinfo=ZoneInfo('Asia/Kolkata'))
-        quote = {'published':late.date()}
-        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                                      'DRY_RUN': 'true',
-                                      'ENFORCE_DELIVERY_WINDOW': 'false'}, clear=True):
-            with patch.object(gold_alert, 'datetime') as dt, patch.object(
-                    gold_alert, 'fetch_datia_quote', return_value=quote) as fetch, patch.object(
-                    gold_alert, 'fetch_market_quotes', return_value={}), patch.object(
-                    gold_alert, 'format_investor_brief', return_value='preview only') as msg, patch.object(
-                    gold_alert, 'send') as send:
-                dt.now.return_value = late
-                gold_alert.main()
-                fetch.assert_called_once_with(late.date())
-                msg.assert_called_once_with(quote, {}, late, ai_insights=None)
-                send.assert_not_called()
-
-    def test_source_unavailable_still_sends_other_market_info(self):
+    def _run_main(self, now, env, quote=None, quote_error=None):
         from datia_rates import PriceDataNotReady
-        now = datetime(2026, 11, 12, 21, 30, tzinfo=gold_alert.TZ)
-        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch',
-                                      'SEND_ENABLED': 'true',
-                                      'DRY_RUN': 'false'}, clear=True):
-            with patch.object(gold_alert, 'datetime') as dt, patch.object(
-                    gold_alert, 'fetch_datia_quote',
-                    side_effect=PriceDataNotReady('unavailable')), patch.object(
-                    gold_alert, 'fetch_market_quotes', return_value={'nifty': None}), patch.object(
-                    gold_alert, 'format_investor_brief',
-                    return_value='Datia source unavailable; market summary') as format_brief, patch.object(
-                    gold_alert, 'send') as send:
-                dt.now.return_value = now
-                gold_alert.main()
-                format_brief.assert_called_once_with(None, {'nifty': None}, now, ai_insights=None)
-                send.assert_called_once_with(
-                    'Datia source unavailable; market summary', now=now)
+        fetch_kwargs = {'side_effect': quote_error} if quote_error else {'return_value': quote}
+        with patch.dict(os.environ, env, clear=True), \
+                patch.object(gold_alert, 'datetime') as dt, \
+                patch.object(gold_alert, 'fetch_datia_quote', **fetch_kwargs) as fetch, \
+                patch.object(gold_alert, 'fetch_backup_quote',
+                             side_effect=PriceDataNotReady('backup down')), \
+                patch.object(gold_alert, 'fetch_market_quotes', return_value={}) as markets, \
+                patch.object(gold_alert, 'build_daily_message', return_value='daily text') as build, \
+                patch.object(gold_alert, 'send_owner_alert') as alert, \
+                patch.object(gold_alert, 'send') as send, \
+                redirect_stdout(StringIO()):
+            dt.now.return_value = now
+            gold_alert.main(sleep=lambda s: None)
+        return fetch, markets, build, alert, send
+
+    def test_external_dispatch_sends_even_if_late(self):
+        from datetime import date
+        from decimal import Decimal
+        late = datetime(2026, 11, 12, 22, 45, tzinfo=gold_alert.TZ)
+        quote = {'published': late.date(), 'gold24': Decimal('133250'), 'gold22': Decimal('122140'),
+                 'silverkg': Decimal('200900'), 'silver_published': late.date(),
+                 'gold_table': {date(2026, 11, 11): {'gold24': Decimal('134000'),
+                                                     'gold22': Decimal('122800')}}}
+        fetch, markets, build, alert, send = self._run_main(
+            late, {'SEND_ENABLED': 'true', 'DRY_RUN': 'false'}, quote=quote)
+        fetch.assert_called_once_with(late.date())
+        markets.assert_called_once_with(late)
+        send.assert_called_once_with('daily text', now=late)
+        trend = build.call_args.args[1]
+        self.assertEqual(trend['prev'], Decimal('134000'))
+        alert.assert_not_called()  # backup cross-check failing is not an owner alert
+
+    def test_dry_run_never_sends_or_alerts(self):
+        from decimal import Decimal
+        now = datetime(2026, 11, 10, 23, 0, tzinfo=gold_alert.TZ)
+        quote = {'published': now.date(), 'gold24': Decimal('133250'), 'gold22': Decimal('122140'),
+                 'silverkg': Decimal('200900'), 'silver_published': now.date()}
+        _, _, build, alert, send = self._run_main(now, {'DRY_RUN': 'true'}, quote=quote)
+        build.assert_called_once()
+        send.assert_not_called()
+        alert.assert_not_called()
+
+    def test_source_unavailable_holds_then_sends_and_alerts_owner(self):
+        from datia_rates import PriceDataNotReady
+        now = datetime(2026, 11, 12, 22, 0, tzinfo=gold_alert.TZ)
+        fetch, _, build, alert, send = self._run_main(
+            now, {'SEND_ENABLED': 'true', 'DRY_RUN': 'false', 'HOLD_MINUTES': '10'},
+            quote_error=PriceDataNotReady('HTTP 403'))
+        self.assertEqual(fetch.call_count, 2)  # first try + one retry after hold
+        self.assertIsNone(build.call_args.args[0])
+        send.assert_called_once_with('daily text', now=now)
+        self.assertIn('bina gold rate', alert.call_args.args[0])
 
     def test_live_send_then_retry_skips_both(self):
         env = {'GREEN_API_INSTANCE_ID': '123456789',

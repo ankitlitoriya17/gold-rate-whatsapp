@@ -122,8 +122,10 @@ def extract_price_card(page, expected_type):
 
 def fetch_datia_quote(today=None):
     today = today or date.today()
-    gold_date, gold = extract_price_card(fetch_html(GOLD_URL), 'Gold')
-    silver_date, silver = extract_price_card(fetch_html(SILVER_URL), 'Silver')
+    gold_page = fetch_html(GOLD_URL)
+    silver_page = fetch_html(SILVER_URL)
+    gold_date, gold = extract_price_card(gold_page, 'Gold')
+    silver_date, silver = extract_price_card(silver_page, 'Silver')
     # Never claim an old quotation is today's price. Send it only with its
     # actual source date visibly displayed. Reject impossible future dates.
     if gold_date > today or silver_date > today:
@@ -151,7 +153,74 @@ def fetch_datia_quote(today=None):
         'delta24': delta24,
         'delta22': delta22,
         'delta_silver': delta_silver,
+        'source': 'aajtak-datia',
+        # Up to ~10 previous days published on the same pages (best effort).
+        'gold_table': _safe_table(gold_page, 'gold', today),
+        'silver_table': _safe_table(silver_page, 'silver', today),
     }
+
+
+TABLE_RE = re.compile(r'<table\s+class="gh-table"[^>]*>(.*?)</table>', re.S | re.I)
+ROW_RE = re.compile(r'<tr>(.*?)</tr>', re.S | re.I)
+TD_RE = re.compile(r'<td[^>]*>(.*?)</td>', re.S | re.I)
+YEAR_RE = re.compile(r'<th[^>]*>\s*Datia\s*<br\s*/?>\s*(\d{4})\s*</th>', re.I)
+MONTHS = {m: i for i, m in enumerate(
+    ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], 1)}
+
+
+def _rupee_cell(cell):
+    text = re.sub(r'<[^>]+>', '', cell)
+    match = re.fullmatch(r'\s*₹\s*([0-9,]+)\s*', text)
+    return Decimal(match.group(1).replace(',', '')) if match else None
+
+
+def extract_history_table(page, metal, today):
+    """Parse the 'last 10 days' table. Returns {date: {...}}; only plausible rows.
+
+    Gold columns: 24K (col 1), 22K (col 3) per 10g. Silver: 1 kg (col 1).
+    The change badges on this table are inconsistent, so changes are derived
+    from prices later, never read from the badges.
+    """
+    match = TABLE_RE.search(page)
+    if not match:
+        return {}
+    table = match.group(1)
+    year_match = YEAR_RE.search(table)
+    year = int(year_match.group(1)) if year_match else today.year
+    rows = {}
+    for row in ROW_RE.findall(table):
+        cells = TD_RE.findall(row)
+        if len(cells) < 4:
+            continue
+        label = re.sub(r'<[^>]+>', '', cells[0]).strip()
+        parts = label.split()
+        if len(parts) != 2 or parts[0][:3] not in MONTHS or not parts[1].isdigit():
+            continue
+        month, day_no = MONTHS[parts[0][:3]], int(parts[1])
+        row_year = year - 1 if month > today.month + 1 else year  # Dec rows seen in Jan
+        try:
+            day = date(row_year, month, day_no)
+        except ValueError:
+            continue
+        if day > today:
+            continue
+        if metal == 'gold':
+            g24, g22 = _rupee_cell(cells[1]), _rupee_cell(cells[3])
+            if g24 and g22 and Decimal(60000) < g22 <= g24 < Decimal(400000):
+                rows[day] = {'gold24': g24, 'gold22': g22}
+        else:
+            kg = _rupee_cell(cells[1])
+            if kg and Decimal(80000) < kg < Decimal(600000):
+                rows[day] = {'silverkg': kg}
+    return rows
+
+
+def _safe_table(page, metal, today):
+    try:
+        return extract_history_table(page, metal, today)
+    except Exception as exc:  # history is optional; never block the daily rate
+        print(f'DATIA HISTORY TABLE: {metal} not parsed ({type(exc).__name__})')
+        return {}
 
 
 def format_datia_message(quote):

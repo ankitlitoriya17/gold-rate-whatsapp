@@ -4,7 +4,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from datia_rates import (
-    GOLD_URL, SILVER_URL, PriceDataNotReady,
+    GOLD_URL, PriceDataNotReady,
     extract_price_card, fetch_datia_quote, format_datia_message,
 )
 

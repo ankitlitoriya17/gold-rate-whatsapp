@@ -9,7 +9,6 @@ from urllib.error import HTTPError
 from zoneinfo import ZoneInfo
 
 from ai_market_insights import generate_ai_insights, market_observations, parse_ai_response
-from market_brief import format_investor_brief
 
 IST = ZoneInfo('Asia/Kolkata')
 NOW = datetime(2026, 11, 19, 22, 0, tzinfo=IST)
@@ -31,10 +30,8 @@ MARKETS = {
 }
 FACTS = market_observations(GOLD, MARKETS, NOW.date())
 SAFE = {
-    'summary': 'Equities mein aaj strong buying dikhi, Nifty 50 +1.47% aur Sensex +1.75% upar band hue, '
-               'saath hi rupee mazboot hua.',
-    'gold': 'Datia 24K gold Rs 1,33,250 par Rs 2,780 neeche aaya; rupee mazboot aur crude -2.26% '
-            'hone par aksar gold par dabaav dikhta hai.',
+    'insight': 'Datia 24K gold Rs 2,780 neeche aaya; rupee mazboot aur crude -2.26% hone par aksar '
+               'gold par dabaav dikhta hai, khareedne walon ke liye rate thoda narm hua.',
     'watch': 'Kal USD/INR aur Brent crude ki direction dekhein, rupee ka trend gold ke rate par asar daal sakta hai.',
 }
 
@@ -102,23 +99,23 @@ class GroqInsightTests(unittest.TestCase):
 
     def test_rejects_invented_numbers(self):
         for field, text in (
-            ('summary', 'Nifty 50 ka agla level 26,000 ho sakta hai, momentum strong lag raha hai.'),
-            ('gold', 'Gold Rs 1,30,000 tak aa sakta hai agar rupee aur mazboot hota hai to.'),
+            ('insight', 'Nifty 50 ka agla level 26,000 ho sakta hai, momentum strong lag raha hai.'),
+            ('insight', 'Gold Rs 1,30,000 tak aa sakta hai agar rupee aur mazboot hota hai to.'),
             ('watch', 'Kal 2.5% ki movement possible hai, isliye USD/INR par nazar rakhein.'),
         ):
             with self.subTest(field=field):
                 self.assertIsNone(parse_ai_response(reply(dict(SAFE, **{field: text})), FACTS))
 
     def test_allows_rounded_supplied_percent(self):
-        ok = dict(SAFE, summary='Nifty 50 lagbhag 1.5% aur Sensex 1.75% upar; equities mein '
+        ok = dict(SAFE, insight='Nifty 50 lagbhag 1.5% aur Sensex 1.75% upar; equities mein '
                                 'aaj positive mood raha.')
-        self.assertEqual(parse_ai_response(reply(ok), FACTS)['summary'], ok['summary'])
+        self.assertEqual(parse_ai_response(reply(ok), FACTS)['insight'], ok['insight'])
 
     def test_reject_advice_urls_and_empty(self):
         for invalid in (
-            dict(SAFE, summary='Abhi gold kharido, ye guaranteed profit wala mauka hai sabke liye.'),
+            dict(SAFE, insight='Abhi gold kharido, ye guaranteed profit wala mauka hai sabke liye.'),
             dict(SAFE, watch='Kal ke liye details https://bad.example.com par dekhein zaroor.'),
-            dict(SAFE, gold=''),
+            dict(SAFE, insight=''),
         ):
             with self.subTest(invalid=invalid):
                 self.assertIsNone(parse_ai_response(reply(invalid), FACTS))
@@ -136,13 +133,24 @@ class GroqInsightTests(unittest.TestCase):
                 self.assertIsNone(generate_ai_insights(None, weak, NOW))
                 call.assert_not_called()
 
-    def test_format_appends_three_lines_without_altering_rates(self):
-        msg = format_investor_brief(GOLD, {}, NOW, ai_insights=SAFE)
-        self.assertIn('AI MARKET INSIGHTS', msg)
-        for text in SAFE.values():
-            self.assertIn(text, msg)
-        self.assertIn('₹1,33,250', msg)
-        self.assertNotIn('AI MARKET INSIGHTS', format_investor_brief(GOLD, {}, NOW))
+    def test_trend_facts_are_added_and_numbers_allowed(self):
+        trend = {'as_of': GOLD['published'], 'change_7d': Decimal('-10320'), 'pct_7d': Decimal('-7.19'),
+                 'window_points': 10, 'window_days': 11, 'low': Decimal('133250'),
+                 'high': Decimal('143570'), 'is_low': True, 'streak': 3, 'streak_dir': -1}
+        facts = market_observations(GOLD, MARKETS, NOW.date(), trend)
+        joined = '\n'.join(facts)
+        self.assertIn('7 din mein: down Rs 10,320 (-7.19%)', joined)
+        self.assertIn('aaj is range ka sabse kam', joined)
+        self.assertIn('lagataar 3 din se gir raha hai', joined)
+        ok = dict(SAFE, insight='Gold 7 din mein Rs 10,320 sasta hua aur lagataar 3 din se gir raha hai, '
+                                'yaani 11 din ka sabse kam level.')
+        self.assertIsNotNone(parse_ai_response(reply(ok), facts))
+
+    def test_backup_source_without_silver(self):
+        backup = dict(GOLD, silverkg=None, source='goodreturns-bhopal')
+        facts = market_observations(backup, MARKETS, NOW.date())
+        self.assertIn('Datia silver: unavailable', facts)
+        self.assertTrue(any('Bhopal' in f for f in facts))
 
 
 if __name__ == '__main__':

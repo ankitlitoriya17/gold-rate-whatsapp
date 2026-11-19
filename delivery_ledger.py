@@ -59,10 +59,10 @@ class DeliveryLedger:
             raise RuntimeError("Invalid GitHub ledger content") from None
         return state, result["sha"]
 
-    def write(self, state, sha):
+    def write(self, state, sha, message="Record WhatsApp daily delivery state [skip ci]"):
         data = json.dumps(state, indent=2, sort_keys=True).encode("utf-8") + b"\n"
         payload = {
-            "message": "Record WhatsApp daily delivery state [skip ci]",
+            "message": message,
             "content": base64.b64encode(data).decode("ascii"),
             "branch": "main",
         }
