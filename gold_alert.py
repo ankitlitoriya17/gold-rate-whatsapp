@@ -372,16 +372,8 @@ def load_history(dry, notes):
         return None, {}, None
 
 
-def main(sleep=time.sleep):
-    now = datetime.now(TZ)
-    # External and manual workflow dispatches may run at any time. Never skip a
-    # report solely because the scheduler was late or a source lagged. All rates
-    # carry their actual publication dates. Claims are per IST day and recipient.
-    dry = _flag('DRY_RUN')
-    enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
-    preview = dry or not enabled
-    notes = []
-
+def build_report(now, preview, notes, sleep=time.sleep):
+    """Everything the daily run sends, without sending. Shared with the owner test."""
     quote = get_quote(now, preview, notes, sleep)
     store, history, sha = load_history(preview, notes)
     merged = rate_history.merge(history, quote)
@@ -400,6 +392,23 @@ def main(sleep=time.sleep):
             weekly = (caption, image)
         elif weekly_chart.is_weekly_day(now.date()):
             notes.append('Sunday chart nahi bana (history kam hai ya matplotlib missing).')
+    return {'message': message, 'weekly': weekly, 'store': store,
+            'history': history, 'merged': merged, 'sha': sha}
+
+
+def main(sleep=time.sleep):
+    now = datetime.now(TZ)
+    # External and manual workflow dispatches may run at any time. Never skip a
+    # report solely because the scheduler was late or a source lagged. All rates
+    # carry their actual publication dates. Claims are per IST day and recipient.
+    dry = _flag('DRY_RUN')
+    enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
+    preview = dry or not enabled
+    notes = []
+
+    report = build_report(now, preview, notes, sleep)
+    message, weekly = report['message'], report['weekly']
+    store, history, merged, sha = report['store'], report['history'], report['merged'], report['sha']
 
     if preview:
         print('PREVIEW ONLY — no WhatsApp messages sent')

@@ -96,29 +96,34 @@ def watchdog(now=None, ledger=None):
 
 
 def send_test(now=None):
-    """Owner-only end-to-end test: one text alert, then a chart image. Never the group."""
+    """Owner-only end-to-end test: tonight's real daily message, then the chart. Never the group."""
     import gold_alert
-    import rate_history
     import weekly_chart
-    from datia_rates import fetch_datia_quote
     now = now or datetime.now(TZ)
     if _dry():
         raise RuntimeError('SEND_ENABLED must be true and DRY_RUN false for the owner test')
-    ok_text = send_owner_alert('TEST: ye sirf aapke number par aaya hai. Asli alerts isi tarah aayenge.', now)
-    quote = fetch_datia_quote(now.date())
-    history = rate_history.merge({}, quote)
-    caption = weekly_chart.weekly_caption(history, quote['published'])
-    image = weekly_chart.render_chart(history, quote['published'])
-    if not caption or not image:
-        raise RuntimeError('chart could not be built')
+    notes = []
+    # preview=True: no hold/wait, no history write, no ledger. Same message builder as live.
+    report = gold_alert.build_report(now, True, notes)
     owner = owner_chat()
     instance = os.environ['GREEN_API_INSTANCE_ID'].strip()
     token = os.environ['GREEN_API_TOKEN'].strip()
-    result = weekly_chart.upload_with_fallback(
-        gold_alert.api_base(), instance, token, owner,
-        '🧪 *TEST — Sunday chart preview*\n\n' + caption, 'datia-gold-test.png', image)
-    ok_image = bool(result.get('idMessage'))
-    print(f'OWNER TEST: text {"accepted" if ok_text else "FAILED"}, chart {"accepted" if ok_image else "FAILED"}')
+    text = gold_alert.call_api(
+        f'{gold_alert.api_base()}/waInstance{instance}/sendMessage/{token}',
+        {'chatId': owner, 'message': '🧪 *TEST — sirf aapko, group ko nahi*\n\n' + report['message']})
+    ok_text = bool(text.get('idMessage'))
+    ok_image = False
+    if report['weekly']:
+        caption, image = report['weekly']
+        result = weekly_chart.upload_with_fallback(
+            gold_alert.api_base(), instance, token, owner,
+            '🧪 *TEST — Sunday chart preview*\n\n' + caption, 'datia-gold-test.png', image)
+        ok_image = bool(result.get('idMessage'))
+    print(report['message'])
+    for note in notes:
+        print('NOTE: ' + note)
+    print(f'OWNER TEST: daily message {"accepted" if ok_text else "FAILED"}, '
+          f'chart {"accepted" if ok_image else "FAILED"}')
     if not (ok_text and ok_image):
         raise RuntimeError('owner test not fully accepted')
 
