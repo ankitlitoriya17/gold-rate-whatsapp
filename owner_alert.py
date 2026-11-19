@@ -7,6 +7,7 @@ group delivery. In dry runs alerts are only printed.
 
 CLI: python owner_alert.py "message"          send a one-off alert
      python owner_alert.py --watchdog         alert if today's send is missing
+     python owner_alert.py --test             test alert + chart to RECIPIENT_1 only
 """
 import os
 import sys
@@ -83,9 +84,41 @@ def watchdog(now=None, ledger=None):
     return True
 
 
+def send_test(now=None):
+    """Owner-only end-to-end test: one text alert, then a chart image. Never the group."""
+    import gold_alert
+    import rate_history
+    import weekly_chart
+    from datia_rates import fetch_datia_quote
+    now = now or datetime.now(TZ)
+    if _dry():
+        raise RuntimeError('SEND_ENABLED must be true and DRY_RUN false for the owner test')
+    ok_text = send_owner_alert('TEST: ye sirf aapke number par aaya hai. Asli alerts isi tarah aayenge.', now)
+    quote = fetch_datia_quote(now.date())
+    history = rate_history.merge({}, quote)
+    caption = weekly_chart.weekly_caption(history, quote['published'])
+    image = weekly_chart.render_chart(history, quote['published'])
+    if not caption or not image:
+        raise RuntimeError('chart could not be built')
+    owner = gold_alert.recipient(os.environ['RECIPIENT_1'])
+    instance = os.environ['GREEN_API_INSTANCE_ID'].strip()
+    token = os.environ['GREEN_API_TOKEN'].strip()
+    media = weekly_chart.media_base(gold_alert.api_base())
+    print(f'OWNER TEST: uploading chart via media host {media.split("//", 1)[1]}')
+    result = weekly_chart.upload_file(f'{media}/waInstance{instance}/sendFileByUpload/{token}',
+                                      owner, '🧪 *TEST — Sunday chart preview*\n\n' + caption,
+                                      'datia-gold-test.png', image)
+    ok_image = bool(result.get('idMessage'))
+    print(f'OWNER TEST: text {"accepted" if ok_text else "FAILED"}, chart {"accepted" if ok_image else "FAILED"}')
+    if not (ok_text and ok_image):
+        raise RuntimeError('owner test not fully accepted')
+
+
 if __name__ == '__main__':
     if sys.argv[1:] == ['--watchdog']:
         watchdog()
+    elif sys.argv[1:] == ['--test']:
+        send_test()
     elif len(sys.argv) > 1:
         send_owner_alert(' '.join(sys.argv[1:]))
     else:

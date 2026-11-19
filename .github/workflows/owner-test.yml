@@ -1,0 +1,26 @@
+name: Owner test (RECIPIENT_1 only)
+# Manual: sends one test alert and one chart image to RECIPIENT_1. Never the group.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Send test to owner
+        env:
+          GREEN_API_INSTANCE_ID: ${{ secrets.GREEN_API_INSTANCE_ID }}
+          GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
+          GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
+          GREEN_API_MEDIA_URL: ${{ secrets.GREEN_API_MEDIA_URL }}
+          RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
+          SEND_ENABLED: ${{ vars.SEND_ENABLED }}
+        run: python owner_alert.py --test
