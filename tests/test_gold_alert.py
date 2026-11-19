@@ -71,6 +71,8 @@ class GoldTest(unittest.TestCase):
         self.assertEqual(recipient('+91 98765-43210'),'919876543210@c.us')
         with self.assertRaises(ValueError):
             recipient('invalid')
+        with self.assertRaisesRegex(ValueError, 'missing country code'):
+            recipient('9876543210')
 
     def test_group_chat_id(self):
         self.assertEqual(group_chat_id('120363012345678901@g.us'),

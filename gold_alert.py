@@ -202,8 +202,8 @@ def _shape(value):
 
 def recipient(value):
     digits = value.strip().replace('+', '').replace(' ', '').replace('-', '')
-    if not re.fullmatch(r'[1-9][0-9]{9,14}', digits):
-        raise ValueError('Recipient must include country code and 10-15 digits '
+    if not re.fullmatch(r'[1-9][0-9]{10,14}', digits):  # 11-15: country code is required
+        raise ValueError('Recipient must include country code (11-15 digits, e.g. 91XXXXXXXXXX) '
                          f'({_shape(value)})')
     return digits + '@c.us'
 
