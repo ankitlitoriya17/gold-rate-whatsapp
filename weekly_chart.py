@@ -28,7 +28,7 @@ def _week_change(points, as_of):
         return None
     first = start[-1] if start else week[0]
     last = week[-1]
-    values = [v for _, v in week]
+    values = [first[1]] + [v for _, v in week]
     return {'from': first[1], 'to': last[1], 'delta': last[1] - first[1],
             'pct': (last[1] - first[1]) / first[1] * 100,
             'high': max(values), 'low': min(values), 'last_day': last[0]}

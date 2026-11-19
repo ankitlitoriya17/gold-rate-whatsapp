@@ -85,17 +85,21 @@ class GroqInsightTests(unittest.TestCase):
         request = call.call_args.args[0]
         payload = json.loads(request.data)
         self.assertEqual(payload['model'], 'openai/gpt-oss-120b')
-        self.assertTrue(payload['response_format']['json_schema']['strict'])
+        self.assertEqual(payload['response_format'], {'type': 'json_object'})
         self.assertNotIn('dummy-test-token', request.data.decode())
 
     def test_falls_back_to_small_model(self):
         err = HTTPError('https://api.groq.com', 503, 'busy', {}, io.BytesIO(b''))
         with patch.dict(os.environ, {'GROQ_API_KEY': 'dummy-test-token'}, clear=True):
             with patch('ai_market_insights.urlopen',
-                       side_effect=[err, DummyResponse(reply(SAFE))]) as call:
+                       side_effect=[err, err, DummyResponse(reply(SAFE))]) as call:
                 self.assertEqual(generate_ai_insights(GOLD, MARKETS, NOW), SAFE)
         models = [json.loads(c.args[0].data)['model'] for c in call.call_args_list]
-        self.assertEqual(models, ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'])
+        self.assertEqual(models, ['openai/gpt-oss-120b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'])
+
+    def test_json_wrapped_in_code_fence_is_accepted(self):
+        fenced = {'choices': [{'message': {'content': '```json\n' + json.dumps(SAFE) + '\n```'}}]}
+        self.assertEqual(parse_ai_response(fenced, FACTS), SAFE)
 
     def test_rejects_invented_numbers(self):
         for field, text in (
@@ -123,7 +127,7 @@ class GroqInsightTests(unittest.TestCase):
     def test_all_failures_fall_back_without_raise(self):
         err = HTTPError('https://api.groq.com', 429, 'too many', {}, io.BytesIO(b'quota'))
         with patch.dict(os.environ, {'GROQ_API_KEY': 'dummy-test-token'}, clear=True):
-            with patch('ai_market_insights.urlopen', side_effect=[err, err]):
+            with patch('ai_market_insights.urlopen', side_effect=[err, err, err]):
                 self.assertIsNone(generate_ai_insights(GOLD, MARKETS, NOW))
 
     def test_weak_data_skips_ai_even_with_key(self):
