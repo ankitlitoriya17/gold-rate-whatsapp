@@ -95,8 +95,13 @@ def watchdog(now=None, ledger=None):
     return True
 
 
-def send_test(now=None):
-    """Owner-only end-to-end test: tonight's real daily message, then the chart. Never the group."""
+def send_test(now=None, target='owner'):
+    """Manual send of tonight's real daily message.
+
+    target='owner': message (TEST label) + chart to the owner only.
+    target='group': just the daily message to GROUP_CHAT_ID, on explicit manual request.
+    Not recorded in the daily ledger.
+    """
     import gold_alert
     import weekly_chart
     now = now or datetime.now(TZ)
@@ -105,12 +110,20 @@ def send_test(now=None):
     notes = []
     # preview=True: no hold/wait, no history write, no ledger. Same message builder as live.
     report = gold_alert.build_report(now, True, notes)
-    owner = owner_chat()
     instance = os.environ['GREEN_API_INSTANCE_ID'].strip()
     token = os.environ['GREEN_API_TOKEN'].strip()
+    send_url = f'{gold_alert.api_base()}/waInstance{instance}/sendMessage/{token}'
+    if target == 'group':
+        group = gold_alert.group_chat_id(os.environ['GROUP_CHAT_ID'])
+        result = gold_alert.call_api(send_url, {'chatId': group, 'message': report['message']})
+        print(report['message'])
+        print('GROUP SEND: ' + ('accepted' if result.get('idMessage') else 'FAILED'))
+        if not result.get('idMessage'):
+            raise RuntimeError('group send not accepted')
+        return
+    owner = owner_chat()
     text = gold_alert.call_api(
-        f'{gold_alert.api_base()}/waInstance{instance}/sendMessage/{token}',
-        {'chatId': owner, 'message': '🧪 *TEST — sirf aapko, group ko nahi*\n\n' + report['message']})
+        send_url, {'chatId': owner, 'message': '🧪 *TEST — sirf aapko, group ko nahi*\n\n' + report['message']})
     ok_text = bool(text.get('idMessage'))
     ok_image = False
     if report['weekly']:
@@ -133,6 +146,8 @@ if __name__ == '__main__':
         watchdog()
     elif sys.argv[1:] == ['--test']:
         send_test()
+    elif sys.argv[1:] == ['--send-group']:
+        send_test(target='group')
     elif len(sys.argv) > 1:
         send_owner_alert(' '.join(sys.argv[1:]))
     else:
