@@ -106,20 +106,32 @@ def market_observations(gold, market, today):
                                  gold.get('delta22'), gday, today))
         facts.append(_metal_line('silver 999', 'per kg', gold['silverkg'],
                                  gold.get('delta_silver'), sday, today))
+    # Meaning is spelled out so the model cannot misread direction (e.g. USD/INR down
+    # means the rupee got STRONGER).
     labels = {
-        'nifty': ('Nifty 50', ''),
-        'sensex': ('Sensex', ''),
-        'usdinr': ('USD/INR', ' rupees per dollar (upar = rupee kamzor, neeche = rupee mazboot)'),
-        'brent': ('Brent crude futures', ' dollars per barrel'),
+        'nifty': ('Nifty 50', '', ('Nifty upar gaya', 'Nifty neeche aaya')),
+        'sensex': ('Sensex', '', ('Sensex upar gaya', 'Sensex neeche aaya')),
+        'usdinr': ('USD/INR', ' rupees per dollar',
+                   ('dollar mehenga hua, yaani rupee KAMZOR hua',
+                    'dollar sasta hua, yaani rupee MAZBOOT hua')),
+        'brent': ('Brent crude futures', ' dollars per barrel',
+                  ('crude mehenga hua', 'crude sasta hua')),
     }
-    for key, (label, unit) in labels.items():
+    for key, (label, unit, meaning) in labels.items():
         item = (market or {}).get(key)
         if not item:
             facts.append(f'{label}: unavailable')
             continue
         text = f'{label}: {_two(item["value"])}{unit}' if item.get('value') is not None else label
-        if item.get('change_pct') is not None:
-            text += f', {_signed_pct(item["change_pct"])} vs previous close'
+        pct = item.get('change_pct')
+        if pct is not None:
+            text += f', {_signed_pct(pct)} vs previous close'
+            if pct > 0:
+                text += f' -> {meaning[0]}'
+            elif pct < 0:
+                text += f' -> {meaning[1]}'
+            else:
+                text += ' -> koi badlav nahi'
         facts.append(text)
     return facts
 
@@ -166,6 +178,18 @@ def parse_ai_response(payload, facts):
         return cleaned
     except (KeyError, IndexError, TypeError, ValueError, ArithmeticError):
         return None
+
+
+def _error_hint(exc):
+    """Groq's short error.message/code (e.g. unsupported parameter); nothing else."""
+    try:
+        body = json.loads(exc.read(4000).decode('utf-8', 'replace'))
+        err = body.get('error', {})
+        text = ' '.join(str(err.get(k, '')) for k in ('code', 'message')).strip()
+        text = re.sub(r'(gsk_|Bearer\s+)\S+', '[redacted]', text)
+        return ': ' + text[:160] if text else ''
+    except Exception:
+        return ''
 
 
 def _request(model, key, facts):
@@ -228,8 +252,7 @@ def generate_ai_insights(gold, market, now=None):
                 return insight
             print(f'AI INSIGHTS: {model} reply rejected by safety/number check')
         except HTTPError as exc:
-            # Do not print the remote body; it may contain sensitive content.
-            print(f'AI INSIGHTS: {model} request failed (HTTP {exc.code})')
+            print(f'AI INSIGHTS: {model} request failed (HTTP {exc.code}){_error_hint(exc)}')
         except (URLError, TimeoutError, ValueError, OSError) as exc:
             print(f'AI INSIGHTS: {model} request failed ({type(exc).__name__})')
     print('AI INSIGHTS: no usable commentary; using standard brief')

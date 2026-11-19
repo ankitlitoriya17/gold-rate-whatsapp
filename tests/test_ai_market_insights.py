@@ -71,6 +71,8 @@ class GroqInsightTests(unittest.TestCase):
         self.assertIn('down Rs 2,780 (-2.04%)', joined)
         self.assertIn('Nifty 50: 25,514.30, +1.47%', joined)
         self.assertIn('USD/INR: 93.28', joined)
+        self.assertIn('rupee MAZBOOT', joined)
+        self.assertIn('crude sasta', joined)
 
     def test_stale_metal_is_labelled_without_change(self):
         old = dict(GOLD, published=date(2026, 11, 18))
