@@ -1,0 +1,85 @@
+{
+  "2026-11-08": {
+    "silverkg": "221000",
+    "source": "aajtak-datia"
+  },
+  "2026-11-09": {
+    "gold18": "107670",
+    "gold22": "131590",
+    "gold24": "143560",
+    "silverkg": "220900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-10": {
+    "gold18": "108457",
+    "gold22": "132560",
+    "gold24": "144610",
+    "silverkg": "220900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-11": {
+    "gold18": "107010",
+    "gold22": "130790",
+    "gold24": "142680",
+    "source": "aajtak-datia"
+  },
+  "2026-11-13": {
+    "gold18": "103980",
+    "gold22": "127100",
+    "gold24": "138640",
+    "silverkg": "211000",
+    "source": "aajtak-datia"
+  },
+  "2026-11-14": {
+    "gold18": "103005",
+    "gold22": "125890",
+    "gold24": "137340",
+    "silverkg": "210900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-15": {
+    "gold18": "103215",
+    "gold22": "126150",
+    "gold24": "137620",
+    "silverkg": "211000",
+    "source": "aajtak-datia"
+  },
+  "2026-11-16": {
+    "gold18": "103207",
+    "gold22": "126140",
+    "gold24": "137610",
+    "silverkg": "210900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-17": {
+    "gold18": "102592",
+    "gold22": "125390",
+    "gold24": "136790",
+    "silverkg": "205900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-18": {
+    "gold18": "102022",
+    "gold22": "124690",
+    "gold24": "136030",
+    "silverkg": "205900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-19": {
+    "gold18": "99937",
+    "gold22": "122140",
+    "gold24": "133250",
+    "silverkg": "200900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-20": {
+    "gold18": "98010",
+    "gold22": "119790",
+    "gold24": "130680",
+    "gold_usd": "3554.4",
+    "nifty": "25800.6",
+    "silverkg": "195900",
+    "source": "aajtak-datia",
+    "usdinr": "92.66"
+  }
+}
