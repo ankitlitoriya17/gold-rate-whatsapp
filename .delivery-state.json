@@ -149,7 +149,8 @@
     },
     "a7acaf89430fb6a7ae1343581baeb9c4": {
       "at": "2026-11-20T16:01:02.450724+00:00",
-      "status": "attempting"
+      "message_id": "3EB0300F4FFE4B3031C24E",
+      "status": "queued"
     }
   }
 }
