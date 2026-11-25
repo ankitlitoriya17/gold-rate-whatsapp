@@ -3,11 +3,15 @@ name: Daily send watchdog
 # receipt for every destination (trigger never fired, token expired, send failed),
 # alerts the owner (RECIPIENT_2). GitHub schedules can run late; that is fine here.
 on:
+  # Several tries because GitHub schedules run late; the watchdog checks the right
+  # day itself (yesterday if it runs before 22:45 IST) and alerts only once per day.
   schedule:
     - cron: '7 18 * * *'   # 23:37 IST
+    - cron: '37 2 * * *'   # 08:07 IST next morning
+    - cron: '7 6 * * *'    # 11:37 IST next morning
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write  # records 'alerted once' in the ledger
 jobs:
   watchdog:
     runs-on: ubuntu-24.04

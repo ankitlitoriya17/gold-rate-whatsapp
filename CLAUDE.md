@@ -18,6 +18,13 @@ Daily Datia gold-rate WhatsApp bot (GitHub Actions + GREEN-API). Read README.md 
 
 ## Other facts
 
+- Triggers: cron-job.org dispatch at ~22:00 IST is the main trigger. On 2026-11-25 it never
+  fired (no run at all). GitHub `schedule` in the daily workflow is a backup: it only sends if
+  it starts 22:00-23:59 IST and today's sends are missing (`already_sent`), else exits.
+- GitHub runs schedules hours late (seen 5-8 h). The watchdog therefore checks `report_day`
+  (yesterday if before 22:45 IST), runs 3 times, and alerts once per day (ledger slot
+  `watchdog-alert`).
+
 - `RECIPIENT_1` holds a group ID and is unused. Owner alerts go to `RECIPIENT_2`, which is the
   owner's personal number (or `OWNER_RECIPIENT` if set). Alerts must never go to a group.
 - GREEN-API media host (`*.media.greenapi.com`) does not resolve for this instance. Uploads fall

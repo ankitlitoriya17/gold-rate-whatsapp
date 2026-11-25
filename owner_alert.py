@@ -11,7 +11,7 @@ CLI: python owner_alert.py "message"          send a one-off alert
 """
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo('Asia/Kolkata')
@@ -65,10 +65,24 @@ def _run_url():
     return f'{server}/{repo}/actions/runs/{run}' if server and repo and run else ''
 
 
+DEADLINE = (22, 45)  # by 22:45 IST the day's message should be out (trigger ~22:00 + hold)
+
+
+def report_day(now):
+    """The day whose send should be finished: today after 22:45 IST, else yesterday.
+
+    GitHub often runs scheduled jobs hours late (after midnight); checking 'today'
+    then would raise a false alarm for a day that has not started sending yet.
+    """
+    if (now.hour, now.minute) >= DEADLINE:
+        return now.date()
+    return now.date() - timedelta(days=1)
+
+
 def watchdog(now=None, ledger=None):
-    """Alert if today's group/recipient send has no 'queued' receipt."""
+    """Alert once if the report day's sends have no 'queued' receipt."""
     now = now or datetime.now(TZ)
-    day = now.date().isoformat()
+    day = report_day(now).isoformat()
     try:
         import gold_alert
         from delivery_ledger import DeliveryLedger
@@ -85,14 +99,26 @@ def watchdog(now=None, ledger=None):
                 missing.append(f'{label}: {status}')
     except Exception as exc:
         missing = [f'watchdog could not read state ({type(exc).__name__})']
-    if missing:
-        send_owner_alert('Aaj ka gold update nahi gaya ya confirm nahi hua:\n- '
-                         + '\n- '.join(missing)
-                         + '\nCheck karein: cron-job.org history, GitHub token expiry, Actions run.',
-                         now)
-        return False
-    print('WATCHDOG: today delivered to all destinations')
-    return True
+        ledger = None
+    if not missing:
+        print(f'WATCHDOG: {day} delivered to all destinations')
+        return True
+    # Several watchdog runs per day: alert only once per report day.
+    if ledger is not None:
+        try:
+            if not ledger.claim(day, WATCHDOG_SLOT):
+                print(f'WATCHDOG: {day} problem already alerted')
+                return False
+        except Exception as exc:
+            print(f'WATCHDOG: could not record alert ({type(exc).__name__}); alerting anyway')
+    send_owner_alert(f'{day} ka gold update nahi gaya ya confirm nahi hua:\n- '
+                     + '\n- '.join(missing)
+                     + '\nCheck karein: cron-job.org job history (401 = GitHub token expire), '
+                       'job enabled hai ya nahi, aur Actions run.', now)
+    return False
+
+
+WATCHDOG_SLOT = 'watchdog-alert'
 
 
 def send_test(now=None, target='owner'):

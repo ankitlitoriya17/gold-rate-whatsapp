@@ -1,5 +1,11 @@
 name: Datia Gold WhatsApp (External Trigger)
 on:
+  # Backup only: cron-job.org (22:00 IST) is the main trigger. These GitHub schedules
+  # (22:50 / 23:20 IST) send only if today's message is missing and the run actually
+  # starts between 22:00 and 23:59 IST; GitHub often runs schedules late.
+  schedule:
+    - cron: '20 17 * * *'
+    - cron: '50 17 * * *'
   workflow_dispatch:
     inputs:
       dry_run:

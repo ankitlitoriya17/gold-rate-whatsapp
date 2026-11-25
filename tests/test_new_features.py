@@ -231,18 +231,71 @@ class OwnerAlertTest(unittest.TestCase):
         self.assertEqual(api.call_args.args[1]['chatId'], '919876543210@c.us')
         self.assertIn('Datia fail', api.call_args.args[1]['message'])
 
-    def test_watchdog_alerts_on_missing_send(self):
+    def test_watchdog_alerts_on_missing_send_once(self):
         from test_delivery_retry import MemoryLedger
         ledger = MemoryLedger()
+        night = datetime(2026, 11, 19, 23, 37, tzinfo=IST)
         env = {'RECIPIENT_2': '919999999999', 'GROUP_CHAT_ID': '120363012345678901@g.us'}
         with patch.dict(os.environ, env, clear=True), \
                 patch('owner_alert.send_owner_alert') as alert, redirect_stdout(io.StringIO()):
-            ledger.claim(NOW.date().isoformat(), '919999999999@c.us')
-            ledger.update(NOW.date().isoformat(), '919999999999@c.us', 'queued', 'm1')
-            self.assertFalse(owner_alert.watchdog(NOW, ledger))
+            ledger.claim('2026-11-19', '919999999999@c.us')
+            ledger.update('2026-11-19', '919999999999@c.us', 'queued', 'm1')
+            self.assertFalse(owner_alert.watchdog(night, ledger))
+            self.assertFalse(owner_alert.watchdog(night, ledger))  # second run: no repeat alert
+        self.assertEqual(alert.call_count, 1)
         text = alert.call_args.args[0]
+        self.assertIn('2026-11-19', text)
         self.assertIn('Group: not attempted', text)
         self.assertNotIn('RECIPIENT_2', text)
+
+    def test_late_morning_watchdog_checks_yesterday(self):
+        from test_delivery_retry import MemoryLedger
+        ledger = MemoryLedger()
+        env = {'RECIPIENT_2': '919999999999'}
+        with patch.dict(os.environ, env, clear=True), \
+                patch('owner_alert.send_owner_alert') as alert, redirect_stdout(io.StringIO()):
+            ledger.claim('2026-11-24', '919999999999@c.us')
+            ledger.update('2026-11-24', '919999999999@c.us', 'queued', 'm1')
+            morning = datetime(2026, 11, 25, 7, 42, tzinfo=IST)
+            self.assertTrue(owner_alert.watchdog(morning, ledger))
+        alert.assert_not_called()
+        self.assertEqual(owner_alert.report_day(datetime(2026, 11, 25, 22, 50, tzinfo=IST)),
+                         date(2026, 11, 25))
+
+
+class BackupScheduleTest(unittest.TestCase):
+    def _main(self, now, already):
+        import gold_alert
+        env = {'GITHUB_EVENT_NAME': 'schedule', 'SEND_ENABLED': 'true', 'DRY_RUN': 'false'}
+        with patch.dict(os.environ, env, clear=True), \
+                patch.object(gold_alert, 'datetime') as dt, \
+                patch.object(gold_alert, 'already_sent', return_value=already), \
+                patch.object(gold_alert, 'build_report') as build, \
+                patch.object(gold_alert, 'send') as send, redirect_stdout(io.StringIO()):
+            dt.now.return_value = now
+            gold_alert.main(sleep=lambda s: None)
+        return build, send
+
+    def test_late_schedule_outside_window_does_nothing(self):
+        build, send = self._main(datetime(2026, 11, 26, 4, 10, tzinfo=IST), already=False)
+        build.assert_not_called()
+        send.assert_not_called()
+
+    def test_schedule_skips_when_main_trigger_already_sent(self):
+        build, send = self._main(datetime(2026, 11, 25, 22, 50, tzinfo=IST), already=True)
+        build.assert_not_called()
+        send.assert_not_called()
+
+    def test_already_sent_checks_all_destinations(self):
+        import gold_alert
+        from test_delivery_retry import MemoryLedger
+        ledger = MemoryLedger()
+        env = {'RECIPIENT_2': '919999999999', 'GROUP_CHAT_ID': '120363012345678901@g.us'}
+        with patch.dict(os.environ, env, clear=True):
+            ledger.claim('2026-11-25', '919999999999@c.us')
+            self.assertFalse(gold_alert.already_sent(date(2026, 11, 25), ledger))
+            ledger.claim('2026-11-25', '120363012345678901@g.us')
+            self.assertTrue(gold_alert.already_sent(date(2026, 11, 25), ledger))
 
 
 class WeeklySendSlotTest(unittest.TestCase):

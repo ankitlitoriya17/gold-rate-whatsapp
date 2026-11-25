@@ -35,7 +35,8 @@ cron-job.org 22:00 IST ─▶ workflow_dispatch ─▶ gold_alert.py
   5. Send to RECIPIENT_2 + GROUP_CHAT_ID (ledger: once per day per destination)
   6. Sunday: chart + caption (separate "weekly" ledger slot)
   7. Any problem (fallback used, gold missing, history save failed…) ⇒ one alert to the owner
-watchdog.yml 23:37 IST ─▶ no confirmed send today? ⇒ alert to the owner
+GitHub schedule 22:50/23:20 IST ─▶ backup trigger, sends only if today is still missing
+watchdog.yml 23:37 / 08:07 / 11:37 IST ─▶ checks the last due day, alerts the owner once
 workflow step failed ⇒ alert to the owner
 ```
 

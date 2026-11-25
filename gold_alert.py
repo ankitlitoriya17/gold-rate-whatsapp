@@ -399,15 +399,39 @@ def build_report(now, preview, notes, sleep=time.sleep):
             'history': history, 'merged': merged, 'sha': sha}
 
 
+def already_sent(day, ledger=None):
+    """True if every destination already has a claim (any status) for `day`."""
+    ledger = ledger or DeliveryLedger(os.environ.get('GITHUB_REPOSITORY'),
+                                      os.environ.get('GITHUB_TOKEN'))
+    state, _ = ledger.read()
+    rows = state.get(day.isoformat(), {})
+    return all(ledger.key(chat) in rows for chat in destination_chats())
+
+
+def in_backup_window(now):
+    return 22 <= now.hour <= 23
+
+
 def main(sleep=time.sleep):
     now = datetime.now(TZ)
     # External and manual workflow dispatches may run at any time. Never skip a
     # report solely because the scheduler was late or a source lagged. All rates
     # carry their actual publication dates. Claims are per IST day and recipient.
+    if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' and not in_backup_window(now):
+        # GitHub's own schedule is only a backup for cron-job.org and often runs hours
+        # late. Outside the evening window it would send at the wrong time; skip.
+        print(f'BACKUP SCHEDULE: {now.strftime("%H:%M")} IST is outside 22:00-23:59; skipping')
+        return
     dry = _flag('DRY_RUN')
     enabled = os.environ.get('SEND_ENABLED', '').strip().lower() == 'true'
     preview = dry or not enabled
     notes = []
+    if os.environ.get('GITHUB_EVENT_NAME') == 'schedule' and not preview:
+        if already_sent(now.date()):
+            print('BACKUP SCHEDULE: today already sent by the main trigger; nothing to do')
+            return
+        notes.append('cron-job.org ka trigger nahi aaya tha; GitHub backup schedule ne bheja. '
+                     'cron-job.org job history aur GitHub token check karein.')
 
     report = build_report(now, preview, notes, sleep)
     message, weekly = report['message'], report['weekly']
