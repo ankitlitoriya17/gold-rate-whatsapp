@@ -53,7 +53,7 @@ Backup rows (other city) are stored but excluded from trend maths.
 | `GREEN_API_MEDIA_URL` | secret, optional | mediaUrl for the Sunday image. Default: apiUrl with `api` → `media` |
 | `RECIPIENT_2` | secret | Daily destination (phone with country code, or group ID `…@g.us`) |
 | `GROUP_CHAT_ID` | secret, optional | Group ID from GREEN-API `getChats` (not the invite link) |
-| `RECIPIENT_1` | secret | Not used |
+| `RECIPIENT_1` | secret | Third destination (a group), active from 2026-12-01 (`RECIPIENT_1_START`) |
 | `LEDGER_KEY` | secret, optional | Key for hashing destinations in the public ledger. Default: `GREEN_API_TOKEN` |
 | `OWNER_RECIPIENT` | secret, optional | Personal number for alerts if it should differ from `RECIPIENT_2` |
 | `GROQ_API_KEY` | secret, optional | AI lines (`openai/gpt-oss-120b`, falls back to `gpt-oss-20b`) |

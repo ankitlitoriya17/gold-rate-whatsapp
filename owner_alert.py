@@ -11,7 +11,7 @@ CLI: python owner_alert.py "message"          send a one-off alert
 """
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo('Asia/Kolkata')
@@ -91,11 +91,12 @@ def watchdog(now=None, ledger=None):
         state, _ = ledger.read()
         rows = state.get(day, {})
         missing = []
-        for chat in gold_alert.destination_chats():
+        for chat in gold_alert.destination_chats(date.fromisoformat(day)):
             row = rows.get(ledger.key(chat))
             status = row.get('status') if row else 'not attempted'
             if status != 'queued':
-                label = 'Group' if chat.endswith('@g.us') else 'RECIPIENT_2'
+                label = {'GROUP_CHAT_ID': 'Group', 'RECIPIENT_1': 'RECIPIENT_1 group'}.get(
+                    gold_alert.destination_label(chat), 'RECIPIENT_2')
                 missing.append(f'{label}: {status}')
     except Exception as exc:
         missing = [f'watchdog could not read state ({type(exc).__name__})']

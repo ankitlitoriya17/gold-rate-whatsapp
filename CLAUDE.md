@@ -25,8 +25,12 @@ Daily Datia gold-rate WhatsApp bot (GitHub Actions + GREEN-API). Read README.md 
   (yesterday if before 22:45 IST), runs 3 times, and alerts once per day (ledger slot
   `watchdog-alert`).
 
-- `RECIPIENT_1` holds a group ID and is unused. Owner alerts go to `RECIPIENT_2`, which is the
-  owner's personal number (or `OWNER_RECIPIENT` if set). Alerts must never go to a group.
+- `RECIPIENT_1` holds a group ID. Owner decision (2026-11-26): it receives the daily message and
+  Sunday chart from **2026-12-01** (`RECIPIENT_1_START` in `gold_alert.py`). A bad value is
+  skipped with an owner alert, never blocking the other destinations. It was dropped on
+  2026-11-13, possibly due to GREEN-API free-plan chat limits; if sends to it fail, check that.
+- Owner alerts go to `RECIPIENT_2`, which is the owner's personal number (or `OWNER_RECIPIENT`
+  if set). Alerts must never go to a group.
 - GREEN-API media host (`*.media.greenapi.com`) does not resolve for this instance. Uploads fall
   back to the API host (`weekly_chart.upload_with_fallback`).
 - This session cannot create Actions secrets via API; ask the owner to add them in Settings.

@@ -81,7 +81,9 @@ class RetryTests(unittest.TestCase):
             late, {'SEND_ENABLED': 'true', 'DRY_RUN': 'false'}, quote=quote)
         fetch.assert_called_once_with(late.date())
         markets.assert_called_once_with(late)
-        send.assert_called_once_with('daily text', now=late)
+        send.assert_called_once()
+        self.assertEqual(send.call_args.args, ('daily text',))
+        self.assertEqual(send.call_args.kwargs['now'], late)
         trend = build.call_args.args[1]
         self.assertEqual(trend['prev'], Decimal('134000'))
         alert.assert_not_called()  # backup cross-check failing is not an owner alert
@@ -104,7 +106,8 @@ class RetryTests(unittest.TestCase):
             quote_error=PriceDataNotReady('HTTP 403'))
         self.assertEqual(fetch.call_count, 2)  # first try + one retry after hold
         self.assertIsNone(build.call_args.args[0])
-        send.assert_called_once_with('daily text', now=now)
+        send.assert_called_once()
+        self.assertEqual(send.call_args.args, ('daily text',))
         self.assertIn('bina gold rate', alert.call_args.args[0])
 
     def test_live_send_then_retry_skips_both(self):

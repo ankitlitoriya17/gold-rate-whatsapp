@@ -1,8 +1,12 @@
 import os
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from datetime import date
 from unittest.mock import patch
 from gold_alert import build_message, latest_common_close, recipient, rupees, send, api_base, group_chat_id, destination_chats
+
+BEFORE = date(2026, 11, 20)  # before RECIPIENT_1_START
 
 def feed(purity, v1, v2, v3):
     return {'metal':'gold','purity':purity,'unit':'INR per gram','source':'IBJA','rows':[
@@ -86,10 +90,10 @@ class GoldTest(unittest.TestCase):
         env = {'RECIPIENT_1': '919876543210',
                'RECIPIENT_2': '919999999999'}
         with patch.dict(os.environ, env, clear=True):
-            self.assertEqual(destination_chats(), ['919999999999@c.us'])
+            self.assertEqual(destination_chats(BEFORE), ['919999999999@c.us'])
         env['GROUP_CHAT_ID'] = '120363012345678901@g.us'
         with patch.dict(os.environ, env, clear=True):
-            self.assertEqual(destination_chats(), [
+            self.assertEqual(destination_chats(BEFORE), [
                 '919999999999@c.us', '120363012345678901@g.us'
             ])
 
@@ -100,10 +104,24 @@ class GoldTest(unittest.TestCase):
             'GROUP_CHAT_ID': '120363012345678901@g.us'
         }
         with patch.dict(os.environ, env, clear=True):
-            self.assertEqual(destination_chats(), [
+            self.assertEqual(destination_chats(BEFORE), [
                 '120363098765432109@g.us',
                 '120363012345678901@g.us'
             ])
+
+    def test_recipient_1_group_added_from_1_december(self):
+        env = {'RECIPIENT_1': '120363055555555555@g.us', 'RECIPIENT_2': '919999999999',
+               'GROUP_CHAT_ID': '120363012345678901@g.us'}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertNotIn('120363055555555555@g.us', destination_chats(date(2026, 11, 30)))
+            self.assertEqual(destination_chats(date(2026, 12, 1))[-1], '120363055555555555@g.us')
+
+    def test_bad_recipient_1_after_start_is_skipped_with_warning(self):
+        env = {'RECIPIENT_1': 'unexpected-bad-value', 'RECIPIENT_2': '919999999999'}
+        warnings = []
+        with patch.dict(os.environ, env, clear=True), redirect_stdout(StringIO()):
+            self.assertEqual(destination_chats(date(2026, 12, 2), warnings), ['919999999999@c.us'])
+        self.assertIn('RECIPIENT_1 skip', warnings[0])
 
     def test_recipient_1_is_ignored_even_if_present_or_invalid(self):
         env = {
@@ -113,10 +131,16 @@ class GoldTest(unittest.TestCase):
         }
         expected = ['919999999999@c.us', '120363012345678901@g.us']
         with patch.dict(os.environ, env, clear=True):
-            self.assertEqual(destination_chats(), expected)
+            self.assertEqual(destination_chats(BEFORE), expected)
         del env['RECIPIENT_1']
         with patch.dict(os.environ, env, clear=True):
-            self.assertEqual(destination_chats(), expected)
+            self.assertEqual(destination_chats(BEFORE), expected)
+
+    def test_recipient_1_duplicate_of_group_is_skipped_not_fatal(self):
+        env = {'RECIPIENT_1': '120363012345678901@g.us', 'RECIPIENT_2': '919999999999',
+               'GROUP_CHAT_ID': '120363012345678901@g.us'}
+        with patch.dict(os.environ, env, clear=True), redirect_stdout(StringIO()):
+            self.assertEqual(len(destination_chats(date(2026, 12, 1))), 2)
 
     def test_duplicate_group_in_two_slots_rejected(self):
         env = {
@@ -126,7 +150,7 @@ class GoldTest(unittest.TestCase):
         }
         with patch.dict(os.environ, env, clear=True):
             with self.assertRaisesRegex(ValueError, 'all be different'):
-                destination_chats()
+                destination_chats(BEFORE)
 
     def test_invalid_group_in_recipient_slot_rejected(self):
         env = {
@@ -135,7 +159,7 @@ class GoldTest(unittest.TestCase):
         }
         with patch.dict(os.environ, env, clear=True):
             with self.assertRaises(ValueError):
-                destination_chats()
+                destination_chats(BEFORE)
 
     def test_currency(self):
         self.assertEqual(rupees('1234567.5'),'₹12,34,568')

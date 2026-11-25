@@ -225,19 +225,49 @@ def destination_chat(value):
     return recipient(raw)
 
 
-def destination_chats():
-    """Only send to RECIPIENT_2 and optional GROUP_CHAT_ID.
+RECIPIENT_1_START = '2026-12-01'  # owner asked: RECIPIENT_1 (a group) receives from 1 Dec 2026
 
-    RECIPIENT_1 is not used (it holds a group ID); owner alerts go to RECIPIENT_2
-    to avoid attempting the extra GREEN-API correspondent.
+
+def recipient_1_start():
+    return date.fromisoformat((os.environ.get('RECIPIENT_1_START') or RECIPIENT_1_START).strip())
+
+
+def destination_chats(day=None, warnings=None):
+    """Daily destinations: RECIPIENT_2, optional GROUP_CHAT_ID, and from
+    RECIPIENT_1_START also RECIPIENT_1.
+
+    A bad RECIPIENT_1 value never blocks the other two: it is skipped and reported
+    in `warnings` (the caller alerts the owner).
     """
+    day = day or datetime.now(TZ).date()
     chats = [destination_chat(os.environ['RECIPIENT_2'])]
     group = (os.environ.get('GROUP_CHAT_ID') or '').strip()
     if group:
         chats.append(group_chat_id(group))
+    extra = (os.environ.get('RECIPIENT_1') or '').strip()
+    if extra and day >= recipient_1_start():
+        try:
+            chat = destination_chat(extra)
+            if chat in chats:
+                raise ValueError('same as another destination')
+            chats.append(chat)
+        except ValueError as exc:
+            msg = f'RECIPIENT_1 skip hua: {exc}'
+            print(msg)
+            if warnings is not None:
+                warnings.append(msg)
     if len(chats) != len(set(chats)):
         raise ValueError('WhatsApp destination slots must all be different')
     return chats
+
+
+def destination_label(chat):
+    if chat == (os.environ.get('GROUP_CHAT_ID') or '').strip():
+        return 'GROUP_CHAT_ID'
+    raw = (os.environ.get('RECIPIENT_1') or '').strip()
+    if raw and (chat == raw or chat == raw.replace('+', '').replace(' ', '') + '@c.us'):
+        return 'RECIPIENT_1'
+    return 'RECIPIENT_2'
 
 
 def call_api(url, payload=None):
@@ -255,7 +285,7 @@ def call_api(url, payload=None):
         raise RuntimeError('GREEN-API network connection failed') from None
 
 
-def send(message, now=None, ledger=None, image=None, slot='daily'):
+def send(message, now=None, ledger=None, image=None, slot='daily', warnings=None):
     """Deliver to RECIPIENT_2 and the group, once per IST day per slot.
 
     slot='daily' sends text; slot='weekly' uploads `image` (PNG bytes) with
@@ -271,7 +301,8 @@ def send(message, now=None, ledger=None, image=None, slot='daily'):
     token = os.environ['GREEN_API_TOKEN'].strip()
     if not re.fullmatch(r'[0-9]{1,12}', instance) or not re.fullmatch(r'[A-Za-z0-9_-]{10,256}', token):
         raise ValueError('Malformed GREEN-API instance credentials')
-    chats = destination_chats()
+    alert_date = (now or datetime.now(TZ)).date()
+    chats = destination_chats(alert_date, warnings)
     prefix = f'{api_base()}/waInstance{instance}'
     state = call_api(f'{prefix}/getStateInstance/{token}')
     if state.get('stateInstance') != 'authorized':
@@ -283,7 +314,7 @@ def send(message, now=None, ledger=None, image=None, slot='daily'):
     alert_day = (now or datetime.now(TZ)).date().isoformat()
 
     for chat in chats:
-        label = 'GROUP_CHAT_ID' if chat == (os.environ.get('GROUP_CHAT_ID') or '').strip() else 'RECIPIENT_2'
+        label = destination_label(chat)
         if slot != 'daily':
             label += f' ({slot})'
         claim_key = chat if slot == 'daily' else f'{chat}#{slot}'
@@ -405,7 +436,7 @@ def already_sent(day, ledger=None):
                                       os.environ.get('GITHUB_TOKEN'))
     state, _ = ledger.read()
     rows = state.get(day.isoformat(), {})
-    return all(ledger.key(chat) in rows for chat in destination_chats())
+    return all(ledger.key(chat) in rows for chat in destination_chats(day))
 
 
 def in_backup_window(now):
@@ -439,6 +470,15 @@ def main(sleep=time.sleep):
 
     if preview:
         print('PREVIEW ONLY — no WhatsApp messages sent')
+        if os.environ.get('RECIPIENT_2'):
+            start, warn = recipient_1_start(), []
+            try:
+                planned = [destination_label(c) + (' (group)' if c.endswith('@g.us') else ' (phone)')
+                           for c in destination_chats(max(now.date(), start), warn)]
+                print(f'DESTINATIONS from {max(now.date(), start)}: ' + ', '.join(planned)
+                      + ('; ' + '; '.join(warn) if warn else ''))
+            except ValueError as exc:
+                print(f'DESTINATIONS check failed: {exc}')
         print(message)
         if weekly:
             with open('weekly_preview.png', 'wb') as handle:
@@ -449,11 +489,19 @@ def main(sleep=time.sleep):
             print('NOTE: ' + note)
         return
 
-    send(message, now=now)
+    if now.date() == recipient_1_start() and os.environ.get('RECIPIENT_1'):
+        notes.append('Aaj se RECIPIENT_1 wale group ko bhi daily message jaana shuru hua.')
+    try:
+        send(message, now=now, warnings=notes)
+    except Exception as exc:
+        # Earlier destinations may already have gone; tell the owner, then fail the run.
+        notes.append(f'Send mein error: {exc}')
+        send_owner_alert('\n'.join('- ' + n for n in notes), now)
+        raise
 
     if weekly and weekly_chart.is_weekly_day(now.date()):
         try:
-            send(weekly[0], now=now, image=weekly[1], slot='weekly')
+            send(weekly[0], now=now, image=weekly[1], slot='weekly', warnings=[])
         except Exception as exc:
             notes.append(f'Sunday chart bhejne mein problem: {exc}')
 

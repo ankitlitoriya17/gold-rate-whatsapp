@@ -28,6 +28,7 @@ jobs:
           LEDGER_KEY: ${{ secrets.LEDGER_KEY }}
           GREEN_API_BASE_URL: ${{ secrets.GREEN_API_BASE_URL }}
           OWNER_RECIPIENT: ${{ secrets.OWNER_RECIPIENT }}
+          RECIPIENT_1: ${{ secrets.RECIPIENT_1 }}
           RECIPIENT_2: ${{ secrets.RECIPIENT_2 }}
           GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
