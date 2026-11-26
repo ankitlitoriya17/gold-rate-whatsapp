@@ -225,7 +225,8 @@
     },
     "a7acaf89430fb6a7ae1343581baeb9c4": {
       "at": "2026-11-26T16:01:04.557142+00:00",
-      "status": "attempting"
+      "message_id": "3EB0EC1840BF7B9834291E",
+      "status": "queued"
     }
   }
 }
