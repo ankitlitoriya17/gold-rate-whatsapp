@@ -220,7 +220,8 @@
   "2026-11-26": {
     "97608692cd9bc1a100be35e9344e2bbf": {
       "at": "2026-11-26T16:01:00.935146+00:00",
-      "status": "attempting"
+      "message_id": "3EB051B77FEE18C7FBB356",
+      "status": "queued"
     }
   }
 }
