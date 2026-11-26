@@ -8,6 +8,11 @@ on:
         type: choice
         options: [owner, group]
         default: owner
+      note:
+        description: Optional first line for a group send (e.g. a correction note)
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -32,4 +37,5 @@ jobs:
           GROUP_CHAT_ID: ${{ secrets.GROUP_CHAT_ID }}
           OWNER_RECIPIENT: ${{ secrets.OWNER_RECIPIENT }}
           SEND_ENABLED: ${{ vars.SEND_ENABLED }}
+          MANUAL_NOTE: ${{ inputs.note }}
         run: python owner_alert.py ${{ inputs.target == 'group' && '--send-group' || '--test' }}

@@ -142,8 +142,10 @@ def send_test(now=None, target='owner'):
     send_url = f'{gold_alert.api_base()}/waInstance{instance}/sendMessage/{token}'
     if target == 'group':
         group = gold_alert.group_chat_id(os.environ['GROUP_CHAT_ID'])
-        result = gold_alert.call_api(send_url, {'chatId': group, 'message': report['message']})
-        print(report['message'])
+        note = (os.environ.get('MANUAL_NOTE') or '').strip()
+        text_out = (note + '\n\n' + report['message']) if note else report['message']
+        result = gold_alert.call_api(send_url, {'chatId': group, 'message': text_out})
+        print(text_out)
         print('GROUP SEND: ' + ('accepted' if result.get('idMessage') else 'FAILED'))
         if not result.get('idMessage'):
             raise RuntimeError('group send not accepted')
