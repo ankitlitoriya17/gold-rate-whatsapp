@@ -121,5 +121,22 @@
     "silverkg": "190900",
     "source": "aajtak-datia",
     "usdinr": "92.9"
+  },
+  "2026-11-25": {
+    "gold18": "95857",
+    "gold22": "117160",
+    "gold24": "127810",
+    "silverkg": "189900",
+    "source": "aajtak-datia"
+  },
+  "2026-11-26": {
+    "gold18": "92452",
+    "gold22": "112990",
+    "gold24": "123270",
+    "gold_usd": "3598.7",
+    "nifty": "25884.5",
+    "silverkg": "180900",
+    "source": "aajtak-datia",
+    "usdinr": "92.435"
   }
 }
