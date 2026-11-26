@@ -28,9 +28,9 @@ A short Hinglish **10:00 PM IST daily gold update** for a WhatsApp group, plus a
 
 ```
 cron-job.org 22:00 IST ─▶ workflow_dispatch ─▶ gold_alert.py
-  1. Aaj Tak Datia (3 tries) ──fail──▶ wait HOLD_MINUTES (10) ─▶ retry ──fail──▶ Goodreturns Bhopal (backup)
-  2. Goodreturns Bhopal 24K cross-check (>4% gap ⇒ owner alert)
-  3. data/rate_history.json  ◀── merge today + Aaj Tak "last 10 days" table (gaps heal themselves)
+  1. IBJA benchmark (3 tries) ──fail──▶ wait HOLD_MINUTES (10) ─▶ retry ──fail──▶ Goodreturns Bhopal (backup)
+  2. Goodreturns Bhopal 24K cross-check (>4% gap or opposite direction ⇒ owner alert)
+  3. data/rate_history.json  ◀── merge today + IBJA's dated series (gaps heal themselves)
   4. Yahoo Finance markets, Groq AI (optional), tip of the day
   5. Send to RECIPIENT_2 + GROUP_CHAT_ID (ledger: once per day per destination)
   6. Sunday: chart + caption (separate "weekly" ledger slot)
@@ -92,7 +92,7 @@ Dependabot updates GitHub Actions and pip dependencies monthly. `validate-gold.y
 
 ## Sources and limits
 
-- Gold/silver: Aaj Tak Datia city pages (indicative, excludes GST/making). Backup: Goodreturns Bhopal (gold only is cross-checked; its silver price level differs).
+- Gold/silver: IBJA benchmark (ibjarates.com), national rate without GST/making; Datia shop rates are usually a little higher. Aaj Tak Datia was dropped on 2026-11-26 (it lagged one day). Backup: Goodreturns Bhopal.
 - Markets: Yahoo Finance chart endpoint (unofficial, may be delayed, not licensed for redistribution). Treat it as a personal preview.
 - WhatsApp: GREEN-API is unofficial. The sending number can be restricted by WhatsApp, so use a dedicated number with consenting recipients.
 - No message is investment advice.

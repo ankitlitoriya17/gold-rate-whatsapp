@@ -9,8 +9,9 @@ MAKING_LOW, MAKING_HIGH = Decimal('0.08'), Decimal('0.15')
 GST = Decimal('0.03')
 BIG_MOVE_PCT = Decimal('1.5')
 SOURCE_LABELS = {
+    'ibja': 'IBJA (India Bullion & Jewellers Assn.) — national benchmark',
     'aajtak-datia': 'Aaj Tak (Datia)',
-    'goodreturns-bhopal': 'Goodreturns (Bhopal) — Datia source aaj fail tha',
+    'goodreturns-bhopal': 'Goodreturns (Bhopal) — IBJA aaj fail tha',
 }
 
 
@@ -49,7 +50,7 @@ def _fresh(quote, now):
 
 def headline(quote, trend, now):
     if not quote:
-        return '⚠️ *Aaj Datia ka gold rate nahi mil paya*'
+        return '⚠️ *Aaj ka gold rate nahi mil paya*'
     if not _fresh(quote, now):
         return f"ℹ️ *Aaj rate update nahi hua — {quote['published'].strftime('%d %b')} ka rate*"
     delta = quote.get('delta24')
@@ -190,7 +191,7 @@ def market_block(market):
 
 
 def build_daily_message(quote, trend, market, now, ai_insights=None, tip=None, invest=None):
-    lines = [f"🪙 *Datia Gold Update* · {now.strftime('%d %b, %a')}",
+    lines = [f"🪙 *Gold Rate Update* · {now.strftime('%d %b, %a')}",
              headline(quote, trend, now), '']
     lines += rate_block(quote, now)
     for block in (trend_block(trend), investment_block(invest), jewellery_block(quote), market_block(market)):
@@ -201,7 +202,7 @@ def build_daily_message(quote, trend, market, now, ai_insights=None, tip=None, i
                   '🔎 ' + ai_insights['watch']]
     if tip:
         lines += ['', '💡 *Kaam ki baat:* ' + tip]
-    source = SOURCE_LABELS.get((quote or {}).get('source'), 'Aaj Tak (Datia)')
-    lines += ['', f'_Source: {source}. Rate GST/making ke bina; dukaan ka rate alag ho sakta hai. '
-                  'Investment salah nahi._']
+    source = SOURCE_LABELS.get((quote or {}).get('source'), 'IBJA')
+    lines += ['', f'_Source: {source}. Rate GST/making ke bina; Datia ki dukaan ka rate thoda alag '
+                  'ho sakta hai. Investment salah nahi._']
     return '\n'.join(lines)

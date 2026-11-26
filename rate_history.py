@@ -8,7 +8,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 HISTORY_PATH = 'data/rate_history.json'
-PRIMARY = 'aajtak-datia'
+PRIMARY = 'ibja'  # was 'aajtak-datia' until 2026-11-26 (lagged one day); old rows kept, not used for trends
 KEEP_DAYS = 400
 FIELDS = ('gold24', 'gold22', 'gold18', 'silverkg')
 MARKET_FIELDS = {'nifty': 'nifty', 'goldusd': 'gold_usd', 'usdinr': 'usdinr'}
@@ -25,7 +25,7 @@ def merge(history, quote):
     merged = {day: dict(row) for day, row in (history or {}).items()}
     if not quote:
         return merged
-    source = quote.get('source', PRIMARY)
+    source = quote.get('source', 'aajtak-datia')
 
     def put(day, values):
         key = day.isoformat()
@@ -33,6 +33,9 @@ def merge(history, quote):
         if existing and existing.get('source') == PRIMARY and source != PRIMARY:
             return  # never overwrite Datia data with the backup city
         row = dict(existing or {})
+        if row.get('source') and row.get('source') != source:
+            # Different source for the same day: drop its prices, keep market closes.
+            row = {k: v for k, v in row.items() if k in MARKET_FIELDS.values()}
         row.update(_row(values, source))
         merged[key] = row
 

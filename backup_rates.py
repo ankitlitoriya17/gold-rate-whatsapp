@@ -1,4 +1,4 @@
-"""Backup gold quote from Goodreturns (Bhopal, MP), used only when Aaj Tak Datia fails.
+"""Backup gold quote from Goodreturns (Bhopal, MP), used only when IBJA fails.
 
 Also used to cross-check the Datia gold rate. Goodreturns publishes per-gram
 prices; they are converted to per-10g. Its silver rate differs a lot from Aaj
@@ -43,6 +43,18 @@ def _published(page):
     return datetime.strptime(match.group(1), '%d %B %Y').date()
 
 
+CHANGE_RE = r'id="{id}"[^>]*>[^<]*<.{{0,400}}?gr-change-(up|down)[^>]*>[^0-9]*([0-9,]+)'
+
+
+def _change(page, element_id):
+    """Per-gram change pill next to a price, as per 10g, or None."""
+    match = re.search(CHANGE_RE.format(id=re.escape(element_id)), page, re.S)
+    if not match:
+        return None
+    value = Decimal(match.group(2).replace(',', '')) * 10
+    return -value if match.group(1) == 'down' else value
+
+
 def parse_gold(page):
     day = _published(page)
     g24 = _price(page, '24K-price') * 10
@@ -65,7 +77,9 @@ def fetch_backup_quote(today=None):
     """Same shape as fetch_datia_quote(); deltas are unknown for this source."""
     today = today or date.today()
     try:
-        gday, g24, g22 = parse_gold(_get(GOLD_URL))
+        gold_page = _get(GOLD_URL)
+        gday, g24, g22 = parse_gold(gold_page)
+        d24 = _change(gold_page, '24K-price')
     except (OSError, PriceDataNotReady, ValueError) as exc:
         raise PriceDataNotReady('backup gold unavailable: ' + _describe(exc)) from None
     if gday > today:
@@ -84,7 +98,7 @@ def fetch_backup_quote(today=None):
         'gold24': g24,
         'gold22': g22,
         'silverkg': kg,
-        'delta24': None,
+        'delta24': d24,
         'delta22': None,
         'delta_silver': None,
         'source': 'goodreturns-bhopal',
@@ -99,6 +113,10 @@ def cross_check(primary, backup):
         return None
     gap = abs(primary['gold24'] - backup['gold24']) / backup['gold24']
     if gap > CROSS_CHECK_LIMIT:
-        return (f'Datia 24K Rs {primary["gold24"]} vs {CITY} Rs {backup["gold24"]} '
-                f'({(gap * 100):.1f}% fark) — Datia rate galat ho sakta hai, check karein')
+        return (f'IBJA 24K Rs {primary["gold24"]} vs {CITY} Rs {backup["gold24"]} '
+                f'({(gap * 100):.1f}% fark) — rate check karein')
+    a, b = primary.get('delta24'), backup.get('delta24')
+    if a and b and (a > 0) != (b > 0) and abs(a) > primary['gold24'] / 200 and abs(b) > backup['gold24'] / 200:
+        return (f'Aaj ka direction alag: IBJA {a:+} vs {CITY} {b:+} (dono 0.5% se bade) — '
+                'kisi ek source mein deri ho sakti hai, check karein')
     return None

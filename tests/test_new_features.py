@@ -29,7 +29,7 @@ def gold_table(rows, year=2026):
             f'<th scope="col">Datia<br>{year}</th> </tr></thead><tbody>{body}</tbody></table></div>')
 
 
-def quote(day=TODAY, g24=133250, g22=122140, kg=200900, d24=-2780, table=None, source='aajtak-datia'):
+def quote(day=TODAY, g24=133250, g22=122140, kg=200900, d24=-2780, table=None, source='ibja'):
     return {'published': day, 'silver_published': day, 'gold24': Decimal(g24), 'gold22': Decimal(g22),
             'silverkg': Decimal(kg) if kg else None, 'delta24': Decimal(d24) if d24 is not None else None,
             'delta22': Decimal('-2550'), 'delta_silver': Decimal('-5000'), 'source': source,
@@ -41,7 +41,7 @@ def history_from(prices, end=TODAY):
     start = end - timedelta(days=len(prices) - 1)
     return {(start + timedelta(days=i)).isoformat():
             {'gold24': str(p), 'gold22': str(int(p * 0.9166)), 'silverkg': '200000',
-             'source': 'aajtak-datia'} for i, p in enumerate(prices)}
+             'source': 'ibja'} for i, p in enumerate(prices)}
 
 
 class HistoryTableTest(unittest.TestCase):
@@ -128,7 +128,7 @@ class DailyMessageTest(unittest.TestCase):
         msg = build_daily_message(quote(), trend, market, NOW,
                                   ai_insights={'insight': 'AI line', 'watch': 'Watch line'},
                                   tip='Tip line')
-        for text in ('🪙 *Datia Gold Update* · 19 Nov, Thu', '🟡 *24K:* ₹1,33,250/10g  (−₹2,780)',
+        for text in ('🪙 *Gold Rate Update* · 19 Nov, Thu', '🟡 *24K:* ₹1,33,250/10g  (−₹2,780)',
                      '1 gram: 24K ₹13,325 · 22K ₹12,214', '⚪ *Chandi:* ₹2,00,900/kg  (−₹5,000) · ₹2,009/10g',
                      '📊 *Trend · 24K*', '7 din: −₹6,750 (−4.8%)', '💍 *10g 22K jewellery ka andaaza*',
                      '📈 Nifty 25,514 ▲1.47%', '$1 = ₹93.28 ▼0.80%', '🧠 *AI ki nazar se*',
@@ -366,3 +366,58 @@ class InvestmentAndEighteenKTest(unittest.TestCase):
         lines = market_block({'goldusd': {'value': Decimal('4051.2'), 'change_pct': Decimal('-1.2')},
                               'goldbees': {'value': Decimal('112.45'), 'change_pct': Decimal('-2.0')}})
         self.assertEqual(lines, ['🥇 Intl gold $4,051/oz ▼1.20% · GoldBees ETF ₹112.45 ▼2.00%'])
+
+
+class IbjaSourceTest(unittest.TestCase):
+    PAGE = (
+        '<span id="lblGold999_AM">122982</span><span id="lblGold999_PM">122641</span>'
+        '<span id="lblGold916_PM">112339</span><span id="lblGold750_PM">91981</span>'
+        '<input type="hidden" name="HdnGold" id="HdnGold" value="{&quot;labels&quot;:[&quot;23/11/2026&quot;,'
+        '&quot;25/11/2026&quot;,&quot;26/11/2026&quot;],&quot;purity999&quot;:[124945,121038,122641],'
+        '&quot;purity916&quot;:[114450,110871,112339]}" />'
+        '<input type="hidden" name="HdnSilver" id="HdnSilver" value="{&quot;labels&quot;:[&quot;25/11/2026&quot;,'
+        '&quot;26/11/2026&quot;],&quot;silverRate&quot;:[142945,147347]}" />')
+
+    def test_parses_latest_dated_rates_and_changes(self):
+        import ibja_rates
+        q = ibja_rates.parse_page(self.PAGE, date(2026, 11, 26))
+        self.assertEqual(q['published'], date(2026, 11, 26))
+        self.assertEqual((q['gold24'], q['gold22'], q['gold18']), (Decimal(122641), Decimal(112339), Decimal(91981)))
+        self.assertEqual(q['delta24'], Decimal(1603))  # 122641 - 121038 (25 Nov PM)
+        self.assertEqual((q['silverkg'], q['delta_silver']), (Decimal(147347), Decimal(4402)))
+        self.assertEqual(len(q['gold_table']), 3)
+        self.assertEqual(q['source'], 'ibja')
+
+    def test_weekend_shows_last_trading_day(self):
+        import ibja_rates
+        q = ibja_rates.parse_page(self.PAGE, date(2026, 11, 28))
+        self.assertEqual(q['published'], date(2026, 11, 26))
+
+    def test_headline_mismatch_rejected(self):
+        import ibja_rates
+        from datia_rates import PriceDataNotReady
+        bad = self.PAGE.replace('<span id="lblGold999_PM">122641', '<span id="lblGold999_PM">125000')
+        with self.assertRaises(PriceDataNotReady):
+            ibja_rates.parse_page(bad, date(2026, 11, 26))
+
+    def test_cross_check_flags_opposite_direction(self):
+        ibja = quote(g24=122641, g22=112339, d24=1603)
+        lagged = quote(g24=123270, g22=112990, d24=-4540, source='goodreturns-bhopal')
+        self.assertIn('direction alag', backup_rates.cross_check(ibja, lagged))
+        same = quote(g24=124850, g22=114450, d24=1520, source='goodreturns-bhopal')
+        self.assertIsNone(backup_rates.cross_check(ibja, same))
+
+    def test_backup_change_pill_parsed(self):
+        page = ('<span id="24K-price">&#x20b9;12,485</span> </div> '
+                '<span class="gr-change-pill gr-change-up"> <i></i> 152 </span>')
+        self.assertEqual(backup_rates._change(page, '24K-price'), Decimal(1520))
+
+    def test_source_switch_drops_old_prices_keeps_market(self):
+        old = {'2026-11-26': {'gold24': '123270', 'gold18': '92452', 'nifty': '25884.5',
+                              'source': 'aajtak-datia'}}
+        q = quote(day=date(2026, 11, 26), g24=122641, g22=112339)
+        merged = rate_history.merge(old, q)
+        row = merged['2026-11-26']
+        self.assertEqual(row['gold24'], '122641')
+        self.assertNotIn('gold18', row)
+        self.assertEqual(row['nifty'], '25884.5')

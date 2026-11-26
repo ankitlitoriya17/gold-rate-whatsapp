@@ -57,7 +57,7 @@ class RetryTests(unittest.TestCase):
         fetch_kwargs = {'side_effect': quote_error} if quote_error else {'return_value': quote}
         with patch.dict(os.environ, env, clear=True), \
                 patch.object(gold_alert, 'datetime') as dt, \
-                patch.object(gold_alert, 'fetch_datia_quote', **fetch_kwargs) as fetch, \
+                patch.object(gold_alert, 'fetch_ibja_quote', **fetch_kwargs) as fetch, \
                 patch.object(gold_alert, 'fetch_backup_quote',
                              side_effect=PriceDataNotReady('backup down')), \
                 patch.object(gold_alert, 'fetch_market_quotes', return_value={}) as markets, \
@@ -73,13 +73,14 @@ class RetryTests(unittest.TestCase):
         from datetime import date
         from decimal import Decimal
         late = datetime(2026, 11, 12, 22, 45, tzinfo=gold_alert.TZ)
-        quote = {'published': late.date(), 'gold24': Decimal('133250'), 'gold22': Decimal('122140'),
+        quote = {'source': 'ibja', 'published': late.date(), 'gold24': Decimal('133250'), 'gold22': Decimal('122140'),
                  'silverkg': Decimal('200900'), 'silver_published': late.date(),
                  'gold_table': {date(2026, 11, 11): {'gold24': Decimal('134000'),
                                                      'gold22': Decimal('122800')}}}
         fetch, markets, build, alert, send = self._run_main(
             late, {'SEND_ENABLED': 'true', 'DRY_RUN': 'false'}, quote=quote)
-        fetch.assert_called_once_with(late.date())
+        fetch.assert_called_once()
+        self.assertEqual(fetch.call_args.args[0], late.date())
         markets.assert_called_once_with(late)
         send.assert_called_once()
         self.assertEqual(send.call_args.args, ('daily text',))

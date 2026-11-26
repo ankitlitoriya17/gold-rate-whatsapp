@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from delivery_ledger import DeliveryLedger
 from datia_rates import fetch_datia_quote, format_datia_message, PriceDataNotReady  # noqa: F401
 from backup_rates import fetch_backup_quote, cross_check
+from ibja_rates import fetch_ibja_quote
 from market_brief import fetch_market_quotes
 from ai_market_insights import generate_ai_insights
 from daily_message import build_daily_message
@@ -351,40 +352,40 @@ def _flag(name):
 
 
 def get_quote(now, dry, notes, sleep=time.sleep):
-    """Aaj Tak Datia first; if it fails, wait HOLD_MINUTES and retry; then backup city."""
+    """IBJA first; if it fails, wait HOLD_MINUTES and retry; then Goodreturns Bhopal."""
     today = now.date()
     try:
-        quote = fetch_datia_quote(today)
+        quote = fetch_ibja_quote(today, sleep)
     except PriceDataNotReady as exc:
-        print(f'DATIA SOURCE UNAVAILABLE/INVALID: {exc}')
+        print(f'IBJA SOURCE UNAVAILABLE/INVALID: {exc}')
         hold = int(os.environ.get('HOLD_MINUTES', '10') or 0)
         quote = None
         if hold > 0 and not dry:
-            print(f'DATIA: holding {hold} min before one more try')
+            print(f'IBJA: holding {hold} min before one more try')
             sleep(hold * 60)
             try:
-                quote = fetch_datia_quote(today)
-                notes.append(f'Aaj Tak pehli baar fail hua ({exc}), {hold} min baad mil gaya.')
+                quote = fetch_ibja_quote(today, sleep)
+                notes.append(f'IBJA pehli baar fail hua ({exc}), {hold} min baad mil gaya.')
             except PriceDataNotReady as again:
-                print(f'DATIA SOURCE still unavailable: {again}')
+                print(f'IBJA still unavailable: {again}')
                 exc = again
         if quote is None:
             try:
                 quote = fetch_backup_quote(today)
-                notes.append(f'Aaj Tak Datia fail ({exc}). Backup Goodreturns Bhopal ka rate bheja gaya.')
+                notes.append(f'IBJA fail ({exc}). Backup Goodreturns Bhopal ka rate bheja gaya.')
             except PriceDataNotReady as backup_exc:
-                notes.append(f'Aaj Tak Datia fail ({exc}) aur backup bhi fail ({backup_exc}). '
+                notes.append(f'IBJA fail ({exc}) aur backup bhi fail ({backup_exc}). '
                              'Message bina gold rate ke gaya.')
                 print(f'BACKUP SOURCE UNAVAILABLE: {backup_exc}')
             return quote
-    # Primary worked: best-effort cross-check against the backup city.
+    # Primary worked: cross-check level and direction against the backup city.
     try:
         warning = cross_check(quote, fetch_backup_quote(today))
         if warning:
             notes.append(warning)
             print('CROSS-CHECK: ' + warning)
         else:
-            print('CROSS-CHECK: Datia 24K within range of Bhopal')
+            print('CROSS-CHECK: IBJA 24K consistent with Bhopal')
     except PriceDataNotReady as exc:
         print(f'CROSS-CHECK skipped: {exc}')
     return quote

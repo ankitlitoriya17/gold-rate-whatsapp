@@ -1,7 +1,7 @@
 """Optional Groq commentary for an existing verified daily investor brief.
 
 The model receives the SAME verified numbers that are printed in the message
-(Datia gold/silver, Nifty, Sensex, USD/INR, Brent) and writes three short Hinglish
+(IBJA gold/silver, Nifty, Sensex, USD/INR, Brent) and writes three short Hinglish
 lines that connect them. It may only repeat numbers it was given: any other
 number, URL, advice word or invented target rejects the whole reply, and the
 brief is sent without AI lines. Never transmits recipients, API tokens or
@@ -24,7 +24,7 @@ SYSTEM = (
     'khareedne wale, chhote investors). Language: simple Hinglish (Roman script).\n'
     'Return strict JSON with fields insight and watch. Har field ek chhota sentence, 15-30 words (max 35).\n'
     '- insight: aaj ke gold/silver move ko trend (7/30 din, lagataar din) aur rupee, crude, '
-    'international gold aur equities ke saath jodo (jaise: Datia ka move global gold se aaya ya '
+    'international gold aur equities ke saath jodo (jaise: India ka gold move global gold se aaya ya '
     'rupee se), aur batao iska aam aadmi ke liye kya matlab hai. Jo rishte aam '
     'taur par dekhe jaate hain unhe "aksar", "ho sakta hai" ke saath batao, pakka cause mat bolo.\n'
     '- watch: kal ke liye ek specific cheez jis par nazar rakhni chahiye, aur kyun.\n'
@@ -75,7 +75,7 @@ def _signed_pct(value):
 
 
 def _metal_line(name, unit, price, delta, published, today):
-    line = f'Datia {name}: Rs {_rupees(price)} {unit}'
+    line = f'IBJA {name}: Rs {_rupees(price)} {unit}'
     if published != today:
         return line + ' (stale: aaj update nahi hua, purana published quote)'
     if delta is None:
@@ -94,7 +94,7 @@ def market_observations(gold, market, today, trend=None, invest=None):
     """Verified, human-readable facts. Contains prices but never PII or credentials."""
     facts = []
     if gold is None:
-        facts.append('Datia gold aur silver source aaj unavailable tha; Datia rates nahi hain.')
+        facts.append('Gold aur silver source aaj unavailable tha; rates nahi hain.')
     else:
         gday = gold['published']
         sday = gold.get('silver_published', gday)
@@ -103,12 +103,12 @@ def market_observations(gold, market, today, trend=None, invest=None):
         facts.append(_metal_line('22K gold', 'per 10g', gold['gold22'],
                                  gold.get('delta22'), gday, today))
         if gold.get('silverkg') is None:
-            facts.append('Datia silver: unavailable')
+            facts.append('Silver: unavailable')
         else:
             facts.append(_metal_line('silver 999', 'per kg', gold['silverkg'],
                                      gold.get('delta_silver'), sday, today))
         if gold.get('source') == 'goodreturns-bhopal':
-            facts.append('Note: Datia source fail tha, ye rates Bhopal (Goodreturns) ke hain.')
+            facts.append('Note: IBJA fail tha, ye rates Bhopal (Goodreturns) ke hain.')
     if trend and gold and trend.get('as_of') == gold.get('published'):
         if trend.get('change_7d') is not None:
             facts.append(f"24K gold 7 din mein: {'up' if trend['change_7d'] > 0 else 'down'} "

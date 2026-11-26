@@ -155,7 +155,7 @@ class GroqInsightTests(unittest.TestCase):
     def test_backup_source_without_silver(self):
         backup = dict(GOLD, silverkg=None, source='goodreturns-bhopal')
         facts = market_observations(backup, MARKETS, NOW.date())
-        self.assertIn('Datia silver: unavailable', facts)
+        self.assertIn('Silver: unavailable', facts)
         self.assertTrue(any('Bhopal' in f for f in facts))
 
 

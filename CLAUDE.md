@@ -18,6 +18,13 @@ Daily Datia gold-rate WhatsApp bot (GitHub Actions + GREEN-API). Read README.md 
 
 ## Other facts
 
+- **Gold/silver source = IBJA** (`ibja_rates.py`, official national benchmark) since 2026-11-26.
+  Aaj Tak Datia was dropped: its "today" rate was the previous day's market rate (1-day lag),
+  so daily moves were wrong. Backup + cross-check (level and direction) = Goodreturns Bhopal.
+  History rows tagged `aajtak-datia` are kept but excluded from trends.
+- Market % change uses the previous trading-day close from Yahoo's daily bars, NOT meta
+  `chartPreviousClose` (that is the close before the 5-day window; bug until 2026-11-26).
+
 - Triggers: cron-job.org dispatch at ~22:00 IST is the main trigger. On 2026-11-25 it never
   fired (no run at all). GitHub `schedule` in the daily workflow is a backup: it only sends if
   it starts 22:00-23:59 IST and today's sends are missing (`already_sent`), else exits.

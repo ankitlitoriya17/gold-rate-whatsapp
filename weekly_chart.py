@@ -1,6 +1,6 @@
 """Sunday recap: 30-day chart image (24K gold + silver) with a weekly summary caption.
 
-Needs matplotlib (installed by the workflow). Built only from stored Datia history.
+Needs matplotlib (installed by the workflow). Built only from stored IBJA history.
 """
 import io
 import os
@@ -51,8 +51,8 @@ def weekly_caption(history, as_of):
                      f"({signed_money(s['delta'])}, {pct(s['pct'], 1)})")
     if g['last_day'] != as_of:
         lines.append(f"(Aakhri published rate {g['last_day'].strftime('%d %b')} ka)")
-    lines += ['', '📊 Graph: pichhle 30 din — 24K gold aur chandi (Datia)',
-              '_Source: Aaj Tak (Datia). Investment salah nahi._']
+    lines += ['', '📊 Graph: pichhle 30 din — 24K gold aur chandi (IBJA)',
+              '_Source: IBJA national benchmark. Investment salah nahi._']
     return '\n'.join(lines)
 
 
@@ -101,7 +101,7 @@ def render_chart(history, as_of):
                         ha='center', fontsize=8.5, color='#444')
         ax.annotate(inr(ys[-1]), (xs[-1], ys[-1]), textcoords='offset points',
                     xytext=(6, 0), fontsize=9.5, fontweight='bold', color=color, va='center')
-    fig.suptitle(f"Datia · last 30 days · till {as_of.strftime('%d %b %Y')}",
+    fig.suptitle(f"IBJA benchmark · last 30 days · till {as_of.strftime('%d %b %Y')}",
                  fontsize=10, color='#666', x=0.99, ha='right')
     fig.tight_layout()
     buffer = io.BytesIO()
