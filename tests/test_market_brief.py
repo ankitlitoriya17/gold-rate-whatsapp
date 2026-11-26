@@ -12,13 +12,19 @@ from market_brief import (
 def chart(price=25299.35, previous=25100, symbol='nifty',
           stamp=None, currency='INR'):
     stamp = stamp or datetime(2026, 11, 12, 15, 31, tzinfo=IST).timestamp()
+    day = datetime.fromtimestamp(int(stamp), IST).replace(hour=9, minute=15)
+    # Daily bars: an older day, the previous trading day (= `previous`), and today.
+    bars = [(day - timedelta(days=2), previous * 0.9), (day - timedelta(days=1), previous),
+            (day, price)]
     return {'chart': {'result': [{
         'meta': {
             'regularMarketPrice': price,
-            'chartPreviousClose': previous,
+            'chartPreviousClose': previous * 0.5 if previous else previous,  # misleading on purpose
             'currency': currency,
             'regularMarketTime': int(stamp),
-        }
+        },
+        'timestamp': [int(d.timestamp()) for d, _ in bars],
+        'indicators': {'quote': [{'close': [c for _, c in bars]}]},
     }]}}
 
 
@@ -36,6 +42,14 @@ GOLD = {
 
 
 class InvestorBriefTest(unittest.TestCase):
+    def test_previous_close_is_previous_trading_day_not_window_start(self):
+        # Real case 26 Nov 2026: meta chartPreviousClose was 5 days old (25,299.35);
+        # the true previous close (25 Nov) was 25,819.25.
+        stamp = datetime(2026, 11, 26, 15, 31, tzinfo=IST)
+        doc = chart(price=25884.5, previous=25819.25, stamp=stamp.timestamp())
+        result = parse_chart(doc, 'nifty', stamp + timedelta(hours=6))
+        self.assertAlmostEqual(float(result['change_pct']), 0.2527, places=3)
+
     def test_parses_credible_index_quote_with_date_and_change(self):
         result = parse_chart(chart(), 'nifty', NOW)
         self.assertEqual(result['value'], Decimal('25299.35'))

@@ -491,6 +491,8 @@ def main(sleep=time.sleep):
 
     if now.date() == recipient_1_start() and os.environ.get('RECIPIENT_1'):
         notes.append('Aaj se RECIPIENT_1 wale group ko bhi daily message jaana shuru hua.')
+    # Log exactly what goes out, so a sent message can be audited later.
+    print('MESSAGE SENT TO DESTINATIONS:\n' + message)
     try:
         send(message, now=now, warnings=notes)
     except Exception as exc:

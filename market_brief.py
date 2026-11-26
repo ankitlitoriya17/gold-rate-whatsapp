@@ -59,6 +59,21 @@ def fetch_chart(symbol):
     raise MarketQuoteError('market provider temporarily unavailable: ' + str(last_error))
 
 
+def previous_day_close(result, today):
+    """Last non-empty daily close dated before `today` (IST), or None."""
+    stamps = result.get('timestamp') or []
+    quotes = ((result.get('indicators') or {}).get('quote') or [{}])[0]
+    closes = quotes.get('close') or []
+    best = None
+    for stamp, close in zip(stamps, closes, strict=False):
+        value = positive(close)
+        if value is None:
+            continue
+        if datetime.fromtimestamp(int(stamp), IST).date() < today:
+            best = value
+    return best
+
+
 def parse_chart(doc, key, now=None):
     now = now or datetime.now(IST)
     spec = ASSETS[key]
@@ -77,10 +92,10 @@ def parse_chart(doc, key, now=None):
             raise MarketQuoteError('market quote missing or too old')
         if not (Decimal(spec['lo']) < price < Decimal(spec['hi'])):
             raise MarketQuoteError('implausible quote')
-        # This is the provider's previous close, never an inferred session.
-        previous = positive(meta.get('regularMarketPreviousClose'))
-        if previous is None:
-            previous = positive(meta.get('chartPreviousClose'))
+        # Previous TRADING-DAY close from the daily bars. Do not use meta
+        # previousClose/chartPreviousClose: with range=5d Yahoo returns the close
+        # before the 5-day window there, which made every "daily" % a ~5-day move.
+        previous = previous_day_close(result, when.date())
         pct = None
         if previous is not None:
             raw_pct = (price - previous) / previous * 100
